@@ -1,0 +1,8 @@
+TPP App - Dashboard
+
+Branch: feature/dashboard
+
+Rencana fitur:
+- Menampilkan jumlah pegawai
+- Menampilkan total TPP
+- Menampilkan rekap TPP per bulan
