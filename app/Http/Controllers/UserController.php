@@ -21,7 +21,10 @@ class UserController extends Controller
 
         $users = User::query()
             ->with(['pegawai.unitKerja', 'unitKerja'])
-            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('unit_kerja_id', $actor->unit_kerja_id))
+            ->when(! $actor->isSuperAdmin(), function ($query) use ($actor) {
+                $query->where('unit_kerja_id', $actor->unit_kerja_id)
+                    ->whereIn('role', ['operator', 'viewer']);
+            })
             ->when($actor->isSuperAdmin() && $selectedUnitKerjaId, fn ($query) => $query->where('unit_kerja_id', $selectedUnitKerjaId))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
@@ -199,7 +202,7 @@ class UserController extends Controller
     {
         return $actor->isSuperAdmin()
             ? ['super_admin', 'admin', 'operator', 'viewer']
-            : ['admin', 'operator', 'viewer'];
+            : ['operator', 'viewer'];
     }
 
     private function ensureRoleCanBeAssigned(User $actor, string $role): void
@@ -213,7 +216,7 @@ class UserController extends Controller
             return;
         }
 
-        abort_if($target->role === 'super_admin', 403, 'Akses ditolak');
+        abort_if(in_array($target->role, ['super_admin', 'admin'], true), 403, 'Akses ditolak');
         abort_unless($actor->canAccessUnit($target->unit_kerja_id), 403, 'Akses ditolak');
     }
 
