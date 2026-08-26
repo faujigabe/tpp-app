@@ -154,6 +154,24 @@ http://127.0.0.1:8000
 
 Jika menggunakan konfigurasi virtual host Laragon, aplikasi juga dapat diakses melalui domain lokal yang disediakan Laragon.
 
+## Pengujian
+
+PHPUnit dikunci menggunakan database MySQL khusus bernama `tpp_app_testing` agar pengujian yang memakai `RefreshDatabase` tidak pernah menghapus data pada `tpp_db`.
+
+Buat database pengujian satu kali:
+
+```bash
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS tpp_app_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
+
+Kemudian jalankan:
+
+```bash
+php artisan test
+```
+
+Jangan mengubah `DB_DATABASE` pada `phpunit.xml` menjadi database aplikasi utama.
+
 ## Struktur Project
 
 Struktur utama aplikasi:
