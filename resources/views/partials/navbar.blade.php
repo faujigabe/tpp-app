@@ -150,7 +150,7 @@
                 </li>
             @endif
 
-            @if(in_array($userRole, ['super_admin', 'admin', 'operator']))
+            @if(in_array($userRole, ['super_admin', 'admin']))
                 <li>
                     <a href="{{ route('users.index') }}" class="{{ $isUsers ? 'active' : '' }}" title="Manajemen User">
                         <i class="bi bi-person-gear navicon"></i><span>Manajemen User</span>

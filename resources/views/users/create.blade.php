@@ -66,7 +66,7 @@
                             @else
                                 <input type="hidden" name="unit_kerja_id" value="{{ $selectedUnitKerjaId }}">
                                 <input type="text" class="form-control" value="{{ optional($unitKerjas->first())->nama_unit }}" readonly>
-                                <div class="form-text">Admin dan operator hanya dapat mengelola user pada unit kerjanya sendiri.</div>
+                                <div class="form-text">Admin hanya dapat mengelola operator dan viewer pada unit kerjanya sendiri.</div>
                             @endif
                             @error('unit_kerja_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>

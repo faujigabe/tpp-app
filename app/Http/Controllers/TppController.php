@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
 use App\Support\SipdRekapBuilder;
 use App\Support\PegawaiSnapshotFactory;
 use App\Services\EkinerjaPdfImportService;
+use Illuminate\Validation\ValidationException;
 
 class TppController extends Controller
 {
@@ -149,22 +150,38 @@ class TppController extends Controller
             'bulan' => 'required|integer|min:1|max:12',
             'tahun' => 'required|integer|min:2000|max:2100',
             'unit_kerja_id' => 'nullable|integer|exists:unit_kerjas,id',
-            'produktivitas'   => 'required|array',
-            'kehadiran'       => 'required|array',
-            'perilaku'        => 'required|array',
-            'bpjs_kesehatan'  => 'required|array',
-            'bpjs_kesehatan_pemberi_kerja' => 'required|array',
-            'tpp_tempat_bertugas' => 'required|array',
-            'tunjangan_pph' => 'required|array',
-            'iuran_jkk' => 'required|array',
-            'iuran_jkm' => 'required|array',
-            'iuran_tapera' => 'required|array',
-            'iuran_pensiun' => 'required|array',
-            'tunjangan_jht' => 'required|array',
-            'bulog' => 'required|array',
-            'tambahan_tpp'    => 'required|array',
-            'potongan_tpp'    => 'required|array',
+            'produktivitas'   => 'required|array|min:1',
+            'produktivitas.*' => 'required|numeric|min:0|max:100',
+            'kehadiran'       => 'required|array|min:1',
+            'kehadiran.*'     => 'required|numeric|min:0|max:100',
+            'perilaku'        => 'required|array|min:1',
+            'perilaku.*'      => 'required|numeric|min:0|max:100',
+            'bpjs_kesehatan'  => 'required|array|min:1',
+            'bpjs_kesehatan.*' => 'required|numeric|min:0',
+            'bpjs_kesehatan_pemberi_kerja' => 'required|array|min:1',
+            'bpjs_kesehatan_pemberi_kerja.*' => 'required|numeric|min:0',
+            'tpp_tempat_bertugas' => 'required|array|min:1',
+            'tpp_tempat_bertugas.*' => 'required|numeric|min:0',
+            'tunjangan_pph' => 'required|array|min:1',
+            'tunjangan_pph.*' => 'required|numeric|min:0',
+            'iuran_jkk' => 'required|array|min:1',
+            'iuran_jkk.*' => 'required|numeric|min:0',
+            'iuran_jkm' => 'required|array|min:1',
+            'iuran_jkm.*' => 'required|numeric|min:0',
+            'iuran_tapera' => 'required|array|min:1',
+            'iuran_tapera.*' => 'required|numeric|min:0',
+            'iuran_pensiun' => 'required|array|min:1',
+            'iuran_pensiun.*' => 'required|numeric|min:0',
+            'tunjangan_jht' => 'required|array|min:1',
+            'tunjangan_jht.*' => 'required|numeric|min:0',
+            'bulog' => 'required|array|min:1',
+            'bulog.*' => 'required|numeric|min:0',
+            'tambahan_tpp'    => 'required|array|min:1',
+            'tambahan_tpp.*'  => 'required|numeric|min:0',
+            'potongan_tpp'    => 'required|array|min:1',
+            'potongan_tpp.*'  => 'required|numeric|min:0|max:100',
             'hitung_pajak'    => 'nullable|array',
+            'hitung_pajak.*'  => 'boolean',
         ]);
 
         abort_if($request->user()?->isSuperAdmin(), 403, 'Super admin tidak dapat melakukan input TPP langsung.');
@@ -173,7 +190,23 @@ class TppController extends Controller
 
         $bulan = (int) $validated['bulan'];
         $tahun = (int) $validated['tahun'];
-        $pegawaiIds = array_map('intval', array_keys($validated['produktivitas']));
+        $pegawaiIds = $this->validatedRowIds($validated['produktivitas'], 'produktivitas');
+        $this->assertMatchingRowIds($validated, $pegawaiIds, [
+            'kehadiran',
+            'perilaku',
+            'bpjs_kesehatan',
+            'bpjs_kesehatan_pemberi_kerja',
+            'tpp_tempat_bertugas',
+            'tunjangan_pph',
+            'iuran_jkk',
+            'iuran_jkm',
+            'iuran_tapera',
+            'iuran_pensiun',
+            'tunjangan_jht',
+            'bulog',
+            'tambahan_tpp',
+            'potongan_tpp',
+        ]);
 
         $pegawais = $this->pegawaiScope($request, $selectedUnitKerjaId, $bulan, $tahun)
             ->with('kelasJabatan')
@@ -181,15 +214,19 @@ class TppController extends Controller
             ->get()
             ->keyBy('id');
 
+        abort_unless(
+            $pegawais->count() === count($pegawaiIds),
+            403,
+            'Terdapat pegawai yang tidak termasuk dalam unit kerja Anda.'
+        );
+
         $unitKerjaId = (int) ($request->user()->unit_kerja_id);
         $this->abortIfPeriodNotEditableByUnit($unitKerjaId, $bulan, $tahun);
 
-        DB::transaction(function () use ($pegawaiIds, $pegawais, $validated, $bulan, $tahun, $unitKerjaId) {
-            foreach ($pegawaiIds as $pid) {
-                if (!isset($pegawais[$pid])) {
-                    continue;
-                }
+        $savedCount = DB::transaction(function () use ($pegawaiIds, $pegawais, $validated, $bulan, $tahun, $unitKerjaId) {
+            $savedCount = 0;
 
+            foreach ($pegawaiIds as $pid) {
                 $prod = (float) ($validated['produktivitas'][$pid] ?? 0);
                 $keh = (float) ($validated['kehadiran'][$pid] ?? 0);
                 $per = (float) ($validated['perilaku'][$pid] ?? 0);
@@ -206,13 +243,6 @@ class TppController extends Controller
                 $tambahanTpp = (float) ($validated['tambahan_tpp'][$pid] ?? 0);
                 $potonganTpp = (float) ($validated['potongan_tpp'][$pid] ?? 0);
                 $hitungPajak = (bool) ((int) ($validated['hitung_pajak'][$pid] ?? 0));
-
-                if ($prod < 0 || $prod > 100 || $keh < 0 || $keh > 100 || $per < 0 || $per > 100) {
-                    continue;
-                }
-                if ($bpjs < 0 || $bpjsPemberiKerja < 0 || $tppTempatBertugas < 0 || $tunjanganPph < 0 || $iuranJkk < 0 || $iuranJkm < 0 || $iuranTapera < 0 || $iuranPensiun < 0 || $tunjanganJht < 0 || $bulog < 0 || $tambahanTpp < 0 || $potonganTpp < 0 || $potonganTpp > 100) {
-                    continue;
-                }
 
                 $pegawai = $pegawais[$pid];
                 $hasil = $this->calculator->calculateFromSnapshot($this->buildPegawaiSnapshot($pegawai), $prod, $keh, $per, $bpjs, $tambahanTpp, $potonganTpp, $hitungPajak);
@@ -245,11 +275,15 @@ class TppController extends Controller
                         'pegawai_snapshot' => $this->buildPegawaiSnapshot($pegawai),
                     ]
                 );
+
+                $savedCount++;
             }
+
+            return $savedCount;
         });
 
         return redirect()->route('tpp.index')
-            ->with('success', "Perhitungan TPP berhasil disimpan untuk seluruh pegawai (Bulan $bulan / Tahun $tahun).");
+            ->with('success', "Perhitungan TPP berhasil disimpan untuk {$savedCount} pegawai (Bulan $bulan / Tahun $tahun).");
     }
 
     public function index(Request $request)
@@ -440,8 +474,8 @@ class TppController extends Controller
     {
         abort_if($request->user()?->isSuperAdmin(), 403, 'Super admin tidak dapat mengubah TPP secara langsung.');
 
-        $request->validate([
-            'tpp' => 'required|array',
+        $validated = $request->validate([
+            'tpp' => 'required|array|min:1',
             'tpp.*.produktivitas' => 'required|numeric|min:0|max:100',
             'tpp.*.kehadiran'     => 'required|numeric|min:0|max:100',
             'tpp.*.perilaku'      => 'required|numeric|min:0|max:100',
@@ -460,47 +494,59 @@ class TppController extends Controller
             'tpp.*.hitung_pajak'  => 'nullable|boolean',
         ]);
 
-        $firstRow = collect($request->tpp)->first();
-        if ($firstRow) {
-            $firstTppId = (int) array_key_first($request->tpp);
-            $firstTpp = $this->tppUnitScope(Tpp::query(), $request)->findOrFail($firstTppId);
-            $this->abortIfPeriodNotEditableByRequest($request, (int) $firstTpp->bulan, (int) $firstTpp->tahun, (int) ($firstTpp->pegawai?->unit_kerja_id ?? $firstTpp->unit_kerja_id));
-        }
+        $tppIds = $this->validatedRowIds($validated['tpp'], 'tpp');
+        $tpps = $this->tppUnitScope(Tpp::with('pegawai.kelasJabatan'), $request)
+            ->whereKey($tppIds)
+            ->get()
+            ->keyBy('id');
 
-        foreach ($request->tpp as $id => $row) {
-            $tpp = $this->tppUnitScope(Tpp::with('pegawai.kelasJabatan'), $request)->findOrFail($id);
+        abort_unless(
+            $tpps->count() === count($tppIds),
+            403,
+            'Terdapat data TPP yang tidak termasuk dalam unit kerja Anda.'
+        );
 
-            $hitungPajak = (bool) ((int) ($row['hitung_pajak'] ?? 0));
+        $updatedCount = DB::transaction(function () use ($validated, $tppIds, $tpps) {
+            foreach ($tppIds as $id) {
+                $row = $validated['tpp'][$id];
+                $tpp = $tpps[$id];
 
-            $snapshot = $this->buildPegawaiSnapshot($tpp->pegawai);
-            $hasil = $this->calculator->calculateFromSnapshot(
-                $snapshot,
-                (float) $row['produktivitas'],
-                (float) $row['kehadiran'],
-                (float) $row['perilaku'],
-                (float) $row['iuran_wajib'],
-                (float) ($row['tambahan_tpp'] ?? 0),
-                (float) ($row['potongan_tpp'] ?? 0),
-                $hitungPajak
-            );
+                $this->abortIfTppNotEditable($tpp);
 
-            $tpp->update(array_merge($hasil, [
-                'hitung_pajak' => $hitungPajak,
-                'bpjs_kesehatan_pemberi_kerja' => (float) ($row['bpjs_kesehatan_pemberi_kerja'] ?? 0),
-                'tpp_tempat_bertugas' => (float) ($row['tpp_tempat_bertugas'] ?? 0),
-                'tunjangan_pph' => (float) ($row['tunjangan_pph'] ?? 0),
-                'iuran_jkk' => (float) ($row['iuran_jkk'] ?? 0),
-                'iuran_jkm' => (float) ($row['iuran_jkm'] ?? 0),
-                'iuran_tapera' => (float) ($row['iuran_tapera'] ?? 0),
-                'iuran_pensiun' => (float) ($row['iuran_pensiun'] ?? 0),
-                'tunjangan_jht' => (float) ($row['tunjangan_jht'] ?? 0),
-                'bulog' => (float) ($row['bulog'] ?? 0),
-                'potongan_iwp' => (float) ($row['iuran_wajib'] ?? 0),
-                'pegawai_snapshot' => $snapshot,
-            ]));
-        }
+                $hitungPajak = (bool) ((int) ($row['hitung_pajak'] ?? 0));
 
-        return redirect()->route('tpp.index')->with('success', 'Update massal berhasil');
+                $snapshot = $this->buildPegawaiSnapshot($tpp->pegawai);
+                $hasil = $this->calculator->calculateFromSnapshot(
+                    $snapshot,
+                    (float) $row['produktivitas'],
+                    (float) $row['kehadiran'],
+                    (float) $row['perilaku'],
+                    (float) $row['iuran_wajib'],
+                    (float) ($row['tambahan_tpp'] ?? 0),
+                    (float) ($row['potongan_tpp'] ?? 0),
+                    $hitungPajak
+                );
+
+                $tpp->update(array_merge($hasil, [
+                    'hitung_pajak' => $hitungPajak,
+                    'bpjs_kesehatan_pemberi_kerja' => (float) ($row['bpjs_kesehatan_pemberi_kerja'] ?? 0),
+                    'tpp_tempat_bertugas' => (float) ($row['tpp_tempat_bertugas'] ?? 0),
+                    'tunjangan_pph' => (float) ($row['tunjangan_pph'] ?? 0),
+                    'iuran_jkk' => (float) ($row['iuran_jkk'] ?? 0),
+                    'iuran_jkm' => (float) ($row['iuran_jkm'] ?? 0),
+                    'iuran_tapera' => (float) ($row['iuran_tapera'] ?? 0),
+                    'iuran_pensiun' => (float) ($row['iuran_pensiun'] ?? 0),
+                    'tunjangan_jht' => (float) ($row['tunjangan_jht'] ?? 0),
+                    'bulog' => (float) ($row['bulog'] ?? 0),
+                    'potongan_iwp' => (float) ($row['iuran_wajib'] ?? 0),
+                    'pegawai_snapshot' => $snapshot,
+                ]));
+            }
+
+            return count($tppIds);
+        });
+
+        return redirect()->route('tpp.index')->with('success', "Update massal berhasil untuk {$updatedCount} data.");
     }
 
 
@@ -604,6 +650,47 @@ class TppController extends Controller
         $approval->save();
 
         return back()->with('success', 'Kunci TPP berhasil dibuka. Admin/operator unit kerja kini bisa mengedit kembali.');
+    }
+
+    private function validatedRowIds(array $rows, string $field): array
+    {
+        $ids = [];
+
+        foreach (array_keys($rows) as $key) {
+            $keyString = (string) $key;
+
+            if (!preg_match('/^[1-9]\d*$/', $keyString) || (string) ((int) $keyString) !== $keyString) {
+                throw ValidationException::withMessages([
+                    $field => 'Identitas baris data tidak valid.',
+                ]);
+            }
+
+            $ids[] = (int) $keyString;
+        }
+
+        if (count($ids) !== count(array_unique($ids))) {
+            throw ValidationException::withMessages([
+                $field => 'Identitas baris data tidak boleh berulang.',
+            ]);
+        }
+
+        return $ids;
+    }
+
+    private function assertMatchingRowIds(array $validated, array $expectedIds, array $fields): void
+    {
+        sort($expectedIds);
+
+        foreach ($fields as $field) {
+            $actualIds = $this->validatedRowIds($validated[$field], $field);
+            sort($actualIds);
+
+            if ($actualIds !== $expectedIds) {
+                throw ValidationException::withMessages([
+                    $field => 'Setiap pegawai harus memiliki data yang lengkap pada semua kolom TPP.',
+                ]);
+            }
+        }
     }
 
     private function getOrInitializeApproval(?int $unitKerjaId, ?int $bulan, ?int $tahun): ?TppApproval

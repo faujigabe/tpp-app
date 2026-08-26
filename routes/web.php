@@ -29,10 +29,12 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:super_admin,admin,operator'])->group(function () {
         Route::get('/tpp/cetak', [TppController::class, 'cetak'])->name('tpp.cetak');
         Route::get('/tpp/export', [TppController::class, 'exportExcel'])->name('tpp.export');
-                Route::get('/tpp/rekap/export', [TppController::class, 'exportRekapExcel'])->name('tpp.rekap.export');
+        Route::get('/tpp/rekap/export', [TppController::class, 'exportRekapExcel'])->name('tpp.rekap.export');
         Route::get('/tpp/rekap-sipd/export', [TppController::class, 'exportRekapSipdExcel'])->name('tpp.rekap.sipd.export');
+    });
 
-        Route::resource('users', UserController::class);
+    Route::middleware(['role:super_admin,admin'])->group(function () {
+        Route::resource('users', UserController::class)->except(['show']);
     });
 
     Route::middleware(['role:admin,operator'])->group(function () {
