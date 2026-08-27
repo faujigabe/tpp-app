@@ -33,10 +33,10 @@ class TppRekapBuilderTest extends TestCase
             false
         );
 
-        $tpp = new Tpp(array_merge($hasil, [
+        $tpp = (new Tpp(array_merge($hasil, [
             'bpjs_kesehatan_pemberi_kerja' => 400000,
             'pegawai_snapshot' => $snapshot,
-        ]));
+        ])))->setRelation('pegawai', null);
 
         $rekap = TppRekapBuilder::rowFromTpp($tpp);
 
@@ -52,7 +52,7 @@ class TppRekapBuilderTest extends TestCase
 
     public function test_rekap_tidak_menampilkan_nilai_setelah_bpjs_negatif(): void
     {
-        $tpp = new Tpp([
+        $tpp = (new Tpp([
             'produktivitas' => 100,
             'kehadiran' => 100,
             'perilaku' => 100,
@@ -62,7 +62,7 @@ class TppRekapBuilderTest extends TestCase
             'zakat' => 0,
             'total_diterima' => 0,
             'pegawai_snapshot' => ['kelas_jabatan' => []],
-        ]);
+        ]))->setRelation('pegawai', null);
 
         $rekap = TppRekapBuilder::rowFromTpp($tpp);
 
@@ -72,22 +72,22 @@ class TppRekapBuilderTest extends TestCase
 
     public function test_total_rekap_merupakan_penjumlahan_baris_yang_sama(): void
     {
-        $first = new Tpp([
+        $first = (new Tpp([
             'tpp_kotor' => 100000,
             'iuran_wajib' => 10000,
             'pajak' => 0,
             'zakat' => 0,
             'total_diterima' => 90000,
             'pegawai_snapshot' => ['kelas_jabatan' => []],
-        ]);
-        $second = new Tpp([
+        ]))->setRelation('pegawai', null);
+        $second = (new Tpp([
             'tpp_kotor' => 200000,
             'iuran_wajib' => 20000,
             'pajak' => 0,
             'zakat' => 0,
             'total_diterima' => 180000,
             'pegawai_snapshot' => ['kelas_jabatan' => []],
-        ]);
+        ]))->setRelation('pegawai', null);
 
         $totals = TppRekapBuilder::totals([$first, $second]);
 
