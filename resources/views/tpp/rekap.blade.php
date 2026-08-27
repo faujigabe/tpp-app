@@ -87,40 +87,14 @@
           $prod = (float) $tpp->produktivitas;
           $keh  = (float) $tpp->kehadiran;
           $per  = (float) $tpp->perilaku;
-
-          $potonganInput = max(0, min(100, (float) ($tpp->potongan_tpp ?? 0)));
-          $faktorEfektif = max(0, 100 - $potonganInput) / 100;
-          $bebanDasar = (float) $tpp->referensi_beban_kerja + max(0, (float) ($tpp->tambahan_tpp ?? 0));
-          $prestasiDasar = (float) $tpp->referensi_prestasi_kerja;
-          $kondisiDasar = (float) $tpp->referensi_kondisi_kerja;
-          $kelangkaanDasar = (float) $tpp->referensi_kelangkaan_profesi;
-
-          $break = function($x) use ($prod, $keh, $per, $faktorEfektif) {
-            $x = (float) $x;
-            if ($x > 0) {
-              $x *= $faktorEfektif;
-            }
-            $basePK = 0.40 * $x;
-            $baseDK = 0.18 * $x;
-            $basePR = 0.42 * $x;
-            $valPK = (float) floor(($prod/100) * $basePK);
-            $valDK = (float) floor(($keh/100)  * $baseDK);
-            $valPR = (float) floor(($per/100)  * $basePR);
-            return ['pk'=>$valPK, 'dk'=>$valDK, 'pr'=>$valPR, 'jml'=>($valPK+$valDK+$valPR)];
-          };
-
-          $beban = $break($bebanDasar);
-          $pres  = $break($prestasiDasar);
-          $kond  = $break($kondisiDasar);
-          $lang  = $break($kelangkaanDasar);
-          $jumlahBesaran = 0;
-          foreach ([$bebanDasar, $prestasiDasar, $kondisiDasar, $kelangkaanDasar] as $komponenDasar) {
-            if ((float) $komponenDasar > 0) {
-              $jumlahBesaran += (float) $komponenDasar * $faktorEfektif;
-            }
-          }
-          $tppSetelahBpjs = (float) $tpp->tpp_kotor - (float) $tpp->iuran_wajib;
-          $tppSetelahPajak = $tppSetelahBpjs - (float) $tpp->pajak;
+          $calc = \App\Support\TppRekapBuilder::rowFromTpp($tpp);
+          $beban = ['pk'=>$calc['beban_pk'], 'dk'=>$calc['beban_dk'], 'pr'=>$calc['beban_pr'], 'jml'=>$calc['beban_jml']];
+          $pres  = ['pk'=>$calc['pres_pk'], 'dk'=>$calc['pres_dk'], 'pr'=>$calc['pres_pr'], 'jml'=>$calc['pres_jml']];
+          $kond  = ['pk'=>$calc['kond_pk'], 'dk'=>$calc['kond_dk'], 'pr'=>$calc['kond_pr'], 'jml'=>$calc['kond_jml']];
+          $lang  = ['pk'=>$calc['lang_pk'], 'dk'=>$calc['lang_dk'], 'pr'=>$calc['lang_pr'], 'jml'=>$calc['lang_jml']];
+          $jumlahBesaran = $calc['jumlah_besaran'];
+          $tppSetelahBpjs = $calc['setelah_bpjs'];
+          $tppSetelahPajak = $calc['setelah_pajak'];
         @endphp
         <tr>
           <td class="text-center">{{ $i + 1 }}</td>
