@@ -27,6 +27,9 @@ class SipdRekapBuilder
         $tppKondisiKerja = self::componentValue($kondisiEfektif, (float) $tpp->produktivitas, (float) $tpp->kehadiran, (float) $tpp->perilaku);
         $tppKelangkaanProfesi = self::componentValue($kelangkaanEfektif, (float) $tpp->produktivitas, (float) $tpp->kehadiran, (float) $tpp->perilaku);
 
+        // Struktur SIPD sengaja berbeda dari rincian total_diterima. Komponen
+        // pemberi kerja dicatat sebagai pendapatan sekaligus potongan, sesuai
+        // kebutuhan berkas unggah SIPD.
         $jumlahTpp = $tppBebanKerja
             + (float) ($tpp->tpp_tempat_bertugas ?? 0)
             + $tppKondisiKerja
