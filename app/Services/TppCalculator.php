@@ -24,78 +24,16 @@ class TppCalculator
     ): array {
         $kelas = $pegawai->kelasJabatan;
 
-        $bebanKerja = (float) optional($kelas)->beban_kerja + max(0, $tambahanTpp);
-        $prestasiKerja = (float) optional($kelas)->prestasi_kerja;
-        $kondisiKerja = (float) optional($kelas)->kondisi_kerja;
-        $kelangkaanProfesi = (float) optional($kelas)->kelangkaan_profesi;
-
-        $potonganInput = max(0, min(100, $potonganTpp));
-        $persenEfektif = max(0, 100 - $potonganInput);
-        $faktorEfektif = $persenEfektif / 100;
-
-        $komponen = [
-            'beban_kerja' => $bebanKerja,
-            'prestasi_kerja' => $prestasiKerja,
-            'kondisi_kerja' => $kondisiKerja,
-            'kelangkaan_profesi' => $kelangkaanProfesi,
-        ];
-
-        foreach ($komponen as $key => $nilai) {
-            if ($nilai > 0) {
-                $komponen[$key] = $nilai * $faktorEfektif;
-            }
-        }
-
-        $totalTppKotor = 0.0;
-        foreach ($komponen as $nilai) {
-            $breakdown = $this->componentBreakdown($nilai, $produktivitas, $kehadiran, $perilaku);
-            $totalTppKotor += $breakdown['jml'];
-        }
-
-        $tppKotor = $this->roundMoney($totalTppKotor);
-
-        $g = strtoupper(trim((string) $pegawai->golongan));
-        if (is_numeric($g)) {
-            $gol = (int) $g;
-        } elseif (str_starts_with($g, 'II')) {
-            $gol = 2;
-        } elseif (str_starts_with($g, 'III')) {
-            $gol = 3;
-        } elseif (str_starts_with($g, 'IV')) {
-            $gol = 4;
-        } else {
-            $gol = 3;
-        }
-        $pajakRate = ($gol <= 3) ? 0.05 : 0.15;
-
-        $setelahIuran = $this->roundMoney($tppKotor - $iuranWajib);
-        if ($setelahIuran < 0) {
-            $setelahIuran = 0.00;
-        }
-
-        $pajak = $hitungPajak ? round($setelahIuran * $pajakRate, 0) : 0.0;
-        $setelahPajak = $this->roundMoney($setelahIuran - $pajak);
-
-        $zakat = (strtolower((string) $pegawai->agama) === 'islam')
-            ? round($setelahPajak * 0.025, 0)
-            : 0.00;
-
-        $totalDiterima = $this->roundMoney($setelahPajak - $zakat);
-
-        return [
-            'produktivitas'   => $produktivitas,
-            'kehadiran'       => $kehadiran,
-            'perilaku'        => $perilaku,
-            'iuran_wajib'     => $this->roundMoney($iuranWajib),
-            'tambahan_tpp'    => $this->roundMoney($tambahanTpp),
-            'potongan_tpp'    => $this->roundMoney($potonganInput),
-
-            'tpp_kotor'       => $tppKotor,
-            'hitung_pajak'    => $hitungPajak,
-            'pajak'           => $this->roundMoney($pajak),
-            'zakat'           => $this->roundMoney($zakat),
-            'total_diterima'  => $totalDiterima,
-        ];
+        return $this->calculateFromSnapshot([
+            'golongan' => $pegawai->golongan,
+            'agama' => $pegawai->agama,
+            'kelas_jabatan' => [
+                'beban_kerja' => (float) optional($kelas)->beban_kerja,
+                'prestasi_kerja' => (float) optional($kelas)->prestasi_kerja,
+                'kondisi_kerja' => (float) optional($kelas)->kondisi_kerja,
+                'kelangkaan_profesi' => (float) optional($kelas)->kelangkaan_profesi,
+            ],
+        ], $produktivitas, $kehadiran, $perilaku, $iuranWajib, $tambahanTpp, $potonganTpp, $hitungPajak);
     }
 
 
