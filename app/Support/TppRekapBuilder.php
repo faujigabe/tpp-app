@@ -44,7 +44,7 @@ class TppRekapBuilder
         }
 
         // Sama dengan TppCalculator: iuran tidak boleh membuat dasar pajak negatif.
-        $setelahBpjs = max(0, round((float) $tpp->tpp_kotor - (float) $tpp->iuran_wajib, 2));
+        $setelahBpjs = (float) max(0, round((float) $tpp->tpp_kotor - (float) $tpp->iuran_wajib, 2));
         $setelahPajak = round($setelahBpjs - (float) $tpp->pajak, 2);
 
         return [
