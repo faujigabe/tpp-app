@@ -46,8 +46,9 @@
         <label class="form-label">Potongan PPH 21</label>
         <div class="form-check mt-2">
           <input type="hidden" name="hitung_pajak" value="0">
-          <input class="form-check-input" type="checkbox" id="hitung_pajak" name="hitung_pajak" value="1" @checked((int) old('hitung_pajak', (int) ($tpp->hitung_pajak ?? true)) === 1)>
+          <input class="form-check-input" type="checkbox" id="hitung_pajak" name="hitung_pajak" value="1" @checked((int) old('hitung_pajak', (int) ($tpp->hitung_pajak ?? false)) === 1)>
           <label class="form-check-label" for="hitung_pajak">Aktifkan perhitungan pajak</label>
+          <div class="form-text">Nonaktifkan jika PPh 21 dihitung oleh bendahara/BKAD.</div>
         </div>
       </div>
       <div class="col-md-3"><label class="form-label">Iuran JKK</label><input type="number" name="iuran_jkk" class="form-control" value="{{ old('iuran_jkk', $tpp->iuran_jkk ?? 0) }}" min="0" step="0.01" required></div>

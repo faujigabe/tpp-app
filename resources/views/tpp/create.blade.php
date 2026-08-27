@@ -522,7 +522,7 @@
               <td>
                 <input type="hidden" name="hitung_pajak[{{ $pid }}]" value="0">
                 <div class="form-check d-flex justify-content-center">
-                  <input class="form-check-input hitung-pajak-item" type="checkbox" name="hitung_pajak[{{ $pid }}]" value="1" @checked((int) old("hitung_pajak.$pid", array_key_exists('hitung_pajak', $defaults ?? []) ? (int) $defaults['hitung_pajak'] : 1) === 1)>
+                  <input class="form-check-input hitung-pajak-item" type="checkbox" name="hitung_pajak[{{ $pid }}]" value="1" @checked((int) old("hitung_pajak.$pid", array_key_exists('hitung_pajak', $defaults ?? []) ? (int) $defaults['hitung_pajak'] : 0) === 1)>
                 </div>
               </td>
               <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_jkk[{{ $pid }}]" value="{{ old("iuran_jkk.$pid", $defaults['iuran_jkk'] ?? 0) }}" min="0" step="0.01" required></div></td>

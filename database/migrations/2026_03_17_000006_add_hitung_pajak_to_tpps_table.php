@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tpps', function (Blueprint $table) {
-            $table->boolean('hitung_pajak')->default(true)->after('tpp_kotor');
+            $table->boolean('hitung_pajak')->default(false)->after('tpp_kotor');
         });
     }
 

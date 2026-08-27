@@ -20,7 +20,7 @@ class TppCalculator
         float $iuranWajib,
         float $tambahanTpp = 0,
         float $potonganTpp = 0,
-        bool $hitungPajak = true
+        bool $hitungPajak = false
     ): array {
         $kelas = $pegawai->kelasJabatan;
 
@@ -107,7 +107,7 @@ class TppCalculator
         float $iuranWajib,
         float $tambahanTpp = 0,
         float $potonganTpp = 0,
-        bool $hitungPajak = true
+        bool $hitungPajak = false
     ): array {
         $bebanKerja = (float) Arr::get($snapshot, 'kelas_jabatan.beban_kerja', 0) + max(0, $tambahanTpp);
         $prestasiKerja = (float) Arr::get($snapshot, 'kelas_jabatan.prestasi_kerja', 0);
