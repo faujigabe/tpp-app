@@ -53,7 +53,7 @@
     <td><input type="number" class="form-control form-control-sm" name="tpp[{{ $tpp->id }}][tunjangan_pph]" value="{{ $tpp->tunjangan_pph ?? 0 }}" min="0" step="0.01"></td>
     <td class="text-center">
         <input type="hidden" name="tpp[{{ $tpp->id }}][hitung_pajak]" value="0">
-        <input type="checkbox" class="form-check-input hitung-pajak-item" name="tpp[{{ $tpp->id }}][hitung_pajak]" value="1" @checked((bool) ($tpp->hitung_pajak ?? true))>
+        <input type="checkbox" class="form-check-input hitung-pajak-item" name="tpp[{{ $tpp->id }}][hitung_pajak]" value="1" @checked((bool) ($tpp->hitung_pajak ?? false))>
     </td>
     <td><input type="number" class="form-control form-control-sm" name="tpp[{{ $tpp->id }}][iuran_jkk]" value="{{ $tpp->iuran_jkk ?? 0 }}" min="0" step="0.01"></td>
     <td><input type="number" class="form-control form-control-sm" name="tpp[{{ $tpp->id }}][iuran_jkm]" value="{{ $tpp->iuran_jkm ?? 0 }}" min="0" step="0.01"></td>

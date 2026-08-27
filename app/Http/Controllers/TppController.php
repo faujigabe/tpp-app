@@ -73,7 +73,9 @@ class TppController extends Controller
                 'iuran_pensiun' => (float) ($tpp->iuran_pensiun ?? 0),
                 'tunjangan_jht' => (float) ($tpp->tunjangan_jht ?? 0),
                 'bulog' => (float) ($tpp->bulog ?? 0),
-                'hitung_pajak' => (bool) ($tpp->hitung_pajak ?? true),
+                // Kebijakan saat ini: pajak ditangani bendahara/BKAD, sehingga
+                // periode baru selalu dimulai dengan perhitungan pajak nonaktif.
+                'hitung_pajak' => false,
             ]);
 
         $currentPeriodInputs = $this->tppUnitScope(Tpp::query(), $request, $selectedUnitKerjaId)
