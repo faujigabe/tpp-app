@@ -7,14 +7,16 @@ use App\Models\User;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 
-class TppExport implements FromCollection, WithHeadings, WithMapping
+class TppExport extends SafeExcelValueBinder implements FromCollection, WithHeadings, WithMapping, WithCustomValueBinder
 {
     public function __construct(
         protected ?int $bulan = null,
         protected ?int $tahun = null,
         protected ?User $user = null,
-        protected ?int $selectedUnitKerjaId = null
+        protected ?int $selectedUnitKerjaId = null,
+        protected ?string $search = null
     ) {}
 
     public function collection()
@@ -39,6 +41,16 @@ class TppExport implements FromCollection, WithHeadings, WithMapping
         }
         if ($this->tahun) {
             $q->where('tahun', $this->tahun);
+        }
+        if (filled($this->search)) {
+            $keyword = trim((string) $this->search);
+            $q->where(function ($inner) use ($keyword) {
+                $inner->whereHas('pegawai', function ($pegawaiQuery) use ($keyword) {
+                    $pegawaiQuery->where('nama', 'like', '%' . $keyword . '%')
+                        ->orWhere('nip', 'like', '%' . $keyword . '%');
+                })->orWhere('pegawai_snapshot->nama', 'like', '%' . $keyword . '%')
+                    ->orWhere('pegawai_snapshot->nip', 'like', '%' . $keyword . '%');
+            });
         }
 
         return $q->orderBy('tahun', 'desc')
