@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
 use App\Support\SipdRekapBuilder;
+use App\Support\TppRekapBuilder;
 use App\Support\PegawaiSnapshotFactory;
 use App\Services\EkinerjaPdfImportService;
 use Illuminate\Validation\ValidationException;
@@ -435,7 +436,7 @@ class TppController extends Controller
             ->get()
             ->map(function ($tpp) {
                 $bulanNama = [1=>'Januari',2=>'Februari',3=>'Maret',4=>'April',5=>'Mei',6=>'Juni',7=>'Juli',8=>'Agustus',9=>'September',10=>'Oktober',11=>'November',12=>'Desember'];
-                $breakdown = $this->calculateRekapBreakdowns($tpp);
+                $breakdown = TppRekapBuilder::rowFromTpp($tpp);
                 $tpp->wa_tax_label = $this->whatsappTaxLabel($tpp);
                 $tpp->wa_message = $this->buildWhatsappMessage($tpp);
                 $tpp->wa_link = $this->buildWhatsappLink($tpp);
@@ -517,7 +518,7 @@ class TppController extends Controller
 
                 $hitungPajak = (bool) ((int) ($row['hitung_pajak'] ?? 0));
 
-                $snapshot = $this->buildPegawaiSnapshot($tpp->pegawai);
+                $snapshot = PegawaiSnapshotFactory::fromTpp($tpp);
                 $hasil = $this->calculator->calculateFromSnapshot(
                     $snapshot,
                     (float) $row['produktivitas'],
@@ -764,7 +765,7 @@ class TppController extends Controller
         $namaPegawai = trim((string) $tpp->referensi_nama);
         $nip = trim((string) $tpp->referensi_nip);
         $pajakLabel = $this->whatsappTaxLabel($tpp);
-        $breakdown = $this->calculateRekapBreakdowns($tpp);
+        $breakdown = TppRekapBuilder::rowFromTpp($tpp);
 
         return collect([
             $sapaan . ' Bpk/Ibu,',
@@ -962,7 +963,7 @@ class TppController extends Controller
         $potonganTpp = (float) $validated['potongan_tpp'];
         $hitungPajak = (bool) ((int) ($validated['hitung_pajak'] ?? 0));
 
-        $snapshot = $this->buildPegawaiSnapshot($tpp->pegawai);
+        $snapshot = PegawaiSnapshotFactory::fromTpp($tpp);
         $hasil = $this->calculator->calculateFromSnapshot($snapshot, $prod, $keh, $per, $bpjs, $tambahanTpp, $potonganTpp, $hitungPajak);
 
         $tpp->update([
@@ -1014,21 +1015,7 @@ class TppController extends Controller
             ->orderByRaw("COALESCE((SELECT nama FROM pegawais WHERE pegawais.id = tpps.pegawai_id), JSON_UNQUOTE(JSON_EXTRACT(pegawai_snapshot, '$.nama'))) asc")
             ->get();
 
-        $totals = [
-            'beban_pk' => 0, 'beban_dk' => 0, 'beban_pr' => 0, 'beban_jml' => 0,
-            'pres_pk' => 0, 'pres_dk' => 0, 'pres_pr' => 0, 'pres_jml' => 0,
-            'kond_pk' => 0, 'kond_dk' => 0, 'kond_pr' => 0, 'kond_jml' => 0,
-            'lang_pk' => 0, 'lang_dk' => 0, 'lang_pr' => 0, 'lang_jml' => 0,
-            'jumlah_besaran' => 0, 'tpp_kotor' => 0, 'bpjs1' => 0, 'bpjs4' => 0,
-            'setelah_bpjs' => 0, 'pajak' => 0, 'setelah_pajak' => 0, 'zakat' => 0, 'diterima' => 0,
-        ];
-
-        foreach ($rows as $tpp) {
-            $calc = $this->calculateRekapBreakdowns($tpp);
-            foreach ($totals as $key => $value) {
-                $totals[$key] += $calc[$key] ?? 0;
-            }
-        }
+        $totals = TppRekapBuilder::totals($rows);
 
         return view('tpp.rekap', compact('rows', 'bulan', 'tahun', 'bulanNama', 'totals', 'availableUnitKerjas', 'selectedUnitKerjaId', 'activeUnitKerja'));
     }
@@ -1068,66 +1055,6 @@ class TppController extends Controller
         return view('tpp.rekap_sipd', compact('rows', 'bulan', 'tahun', 'totals', 'availableUnitKerjas', 'selectedUnitKerjaId', 'activeUnitKerja'));
     }
 
-
-    private function calculateRekapBreakdowns(Tpp $tpp): array
-    {
-        $prod = (float) $tpp->produktivitas;
-        $keh = (float) $tpp->kehadiran;
-        $per = (float) $tpp->perilaku;
-
-        $potonganInput = max(0, min(100, (float) ($tpp->potongan_tpp ?? 0)));
-        $faktorEfektif = max(0, 100 - $potonganInput) / 100;
-        $bebanDasar = (float) $tpp->referensi_beban_kerja + max(0, (float) ($tpp->tambahan_tpp ?? 0));
-        $prestasiDasar = (float) $tpp->referensi_prestasi_kerja;
-        $kondisiDasar = (float) $tpp->referensi_kondisi_kerja;
-        $kelangkaanDasar = (float) $tpp->referensi_kelangkaan_profesi;
-
-        $break = function ($x) use ($prod, $keh, $per, $faktorEfektif) {
-            $x = (float) $x;
-            if ($x > 0) {
-                $x *= $faktorEfektif;
-            }
-            $basePK = 0.40 * $x;
-            $baseDK = 0.18 * $x;
-            $basePR = 0.42 * $x;
-            $valPK = (float) floor(($prod / 100) * $basePK);
-            $valDK = (float) floor(($keh / 100) * $baseDK);
-            $valPR = (float) floor(($per / 100) * $basePR);
-
-            return ['pk' => $valPK, 'dk' => $valDK, 'pr' => $valPR, 'jml' => $valPK + $valDK + $valPR];
-        };
-
-        $beban = $break($bebanDasar);
-        $pres = $break($prestasiDasar);
-        $kond = $break($kondisiDasar);
-        $lang = $break($kelangkaanDasar);
-
-        $jumlahBesaran = 0;
-        foreach ([$bebanDasar, $prestasiDasar, $kondisiDasar, $kelangkaanDasar] as $komponenDasar) {
-            if ((float) $komponenDasar > 0) {
-                $jumlahBesaran += (float) $komponenDasar * $faktorEfektif;
-            }
-        }
-
-        $tppSetelahBpjs = (float) $tpp->tpp_kotor - (float) $tpp->iuran_wajib;
-        $tppSetelahPajak = $tppSetelahBpjs - (float) $tpp->pajak;
-
-        return [
-            'beban_pk' => $beban['pk'], 'beban_dk' => $beban['dk'], 'beban_pr' => $beban['pr'], 'beban_jml' => $beban['jml'],
-            'pres_pk' => $pres['pk'], 'pres_dk' => $pres['dk'], 'pres_pr' => $pres['pr'], 'pres_jml' => $pres['jml'],
-            'kond_pk' => $kond['pk'], 'kond_dk' => $kond['dk'], 'kond_pr' => $kond['pr'], 'kond_jml' => $kond['jml'],
-            'lang_pk' => $lang['pk'], 'lang_dk' => $lang['dk'], 'lang_pr' => $lang['pr'], 'lang_jml' => $lang['jml'],
-            'jumlah_besaran' => $jumlahBesaran,
-            'tpp_kotor' => (float) $tpp->tpp_kotor,
-            'bpjs1' => (float) $tpp->iuran_wajib,
-            'bpjs4' => (float) ($tpp->bpjs_kesehatan_pemberi_kerja ?? 0),
-            'setelah_bpjs' => $tppSetelahBpjs,
-            'pajak' => (float) $tpp->pajak,
-            'setelah_pajak' => $tppSetelahPajak,
-            'zakat' => (float) $tpp->zakat,
-            'diterima' => (float) $tpp->total_diterima,
-        ];
-    }
 
     public function exportRekapSipdExcel(Request $request)
     {
