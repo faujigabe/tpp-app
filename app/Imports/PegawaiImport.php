@@ -4,8 +4,10 @@ namespace App\Imports;
 
 use App\Models\KelasJabatan;
 use App\Models\Pegawai;
+use App\Rules\SafeSpreadsheetText;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
@@ -24,6 +26,7 @@ class PegawaiImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnF
     public function __construct(
         private ?int $defaultUnitKerjaId = null,
         private ?int $overrideUnitKerjaId = null,
+        private bool $allowCrossUnitMove = false,
     ) {}
 
     public function model(array $row)
@@ -34,11 +37,29 @@ class PegawaiImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnF
         $isNew = !$pegawai->exists;
         $unitKerjaId = $targetUnitKerjaId ?: $pegawai->unit_kerja_id;
 
+        if ($pegawai->exists
+            && !$this->allowCrossUnitMove
+            && (int) $pegawai->unit_kerja_id !== (int) $unitKerjaId) {
+            throw ValidationException::withMessages([
+                'file' => "NIP {$nip} sudah terdaftar pada unit kerja lain.",
+            ]);
+        }
+
+        $nik = $this->nullableString($row['nik'] ?? null);
+        if ($nik !== null && Pegawai::query()->where('nik', $nik)->when(
+            $pegawai->exists,
+            fn ($query) => $query->where('id', '!=', $pegawai->id)
+        )->exists()) {
+            throw ValidationException::withMessages([
+                'file' => "NIK {$nik} sudah digunakan oleh pegawai lain.",
+            ]);
+        }
+
         $kelas = $this->resolveKelasJabatan($row, $unitKerjaId, $pegawai);
 
         $pegawai->fill([
             'nama' => trim((string) ($row['nama'] ?? '')),
-            'nik' => $this->nullableString($row['nik'] ?? null),
+            'nik' => $nik,
             'no_npwp' => $this->nullableString($row['no_npwp'] ?? null),
             'tanggal_lahir' => $this->parseDate($row['tanggal_lahir'] ?? null),
             'nomor_rekening' => $this->nullableString($row['nomor_rekening'] ?? null),
@@ -70,22 +91,29 @@ class PegawaiImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnF
     public function rules(): array
     {
         return [
-            'nama' => ['required'],
-            'nip' => ['required', 'distinct'],
-            'nik' => ['nullable', 'distinct'],
-            'tanggal_lahir' => ['nullable'],
-            'nomor_rekening' => ['nullable'],
-            'no_hp' => ['required'],
-            'golongan' => ['required', Rule::in(['II/A','II/B','II/C','II/D','III/A','III/B','III/C','III/D','IV/A','IV/B','IV/C','IV/D','IV/E','2','3','4'])],
-            'agama' => ['required'],
-            'jabatan' => ['required'],
+            'nama' => ['required', 'string', 'max:255', new SafeSpreadsheetText()],
+            'nip' => ['required', 'distinct', 'regex:/^\d{18}$/', new SafeSpreadsheetText()],
+            'nik' => ['nullable', 'distinct', 'regex:/^\d{16}$/', new SafeSpreadsheetText()],
+            'tanggal_lahir' => ['nullable', function ($attribute, $value, $fail) {
+                if ($this->parseDate($value) === null) {
+                    $fail('Tanggal lahir tidak valid. Gunakan format tanggal Excel atau YYYY-MM-DD.');
+                }
+            }],
+            'nomor_rekening' => ['nullable', 'string', 'max:50', new SafeSpreadsheetText()],
+            'no_hp' => ['required', 'string', 'max:20', new SafeSpreadsheetText()],
+            'golongan' => ['required', new SafeSpreadsheetText(), Rule::in(['II/A','II/B','II/C','II/D','III/A','III/B','III/C','III/D','IV/A','IV/B','IV/C','IV/D','IV/E','2','3','4'])],
+            'agama' => ['required', 'string', 'max:50', new SafeSpreadsheetText()],
+            'jabatan' => ['required', 'string', 'max:255', new SafeSpreadsheetText()],
             'kelas_jabatan' => ['required', function ($attribute, $value, $fail) {
                 $unitKerjaId = $this->targetUnitKerjaId();
                 $query = KelasJabatan::query()->where('unit_kerja_id', $unitKerjaId);
 
                 if (is_numeric($value)) {
-                    if (!(clone $query)->where('nomor_kelas', (int) $value)->exists()) {
+                    $matchCount = (clone $query)->where('nomor_kelas', (int) $value)->count();
+                    if ($matchCount === 0) {
                         $fail('Kelas Jabatan tidak ditemukan pada unit kerja tujuan. Pastikan master Kelas Jabatan unit ini sudah dibuat terlebih dahulu.');
+                    } elseif ($matchCount > 1) {
+                        $fail('Nomor Kelas memiliki beberapa nama kelas. Gunakan nama kelas yang sama persis agar tidak ambigu.');
                     }
                     return;
                 }
@@ -94,8 +122,13 @@ class PegawaiImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnF
                     $fail('Kelas Jabatan tidak ditemukan pada unit kerja tujuan. Pastikan master Kelas Jabatan unit ini sudah dibuat terlebih dahulu.');
                 }
             }],
-            'nama_kelas_jabatan' => ['nullable', 'string'],
-            'nama_jabatan' => ['nullable', 'string'],
+            'nama_kelas_jabatan' => ['nullable', 'string', 'max:255', new SafeSpreadsheetText()],
+            'nama_jabatan' => ['nullable', 'string', 'max:255', new SafeSpreadsheetText()],
+            'no_npwp' => ['nullable', 'string', 'max:50', new SafeSpreadsheetText()],
+            'eselon' => ['nullable', 'string', 'max:50', new SafeSpreadsheetText()],
+            'alamat' => ['nullable', 'string', 'max:1000', new SafeSpreadsheetText()],
+            'kode_bank' => ['nullable', 'string', 'max:20', new SafeSpreadsheetText()],
+            'nama_bank' => ['nullable', 'string', 'max:100', new SafeSpreadsheetText()],
         ];
     }
 

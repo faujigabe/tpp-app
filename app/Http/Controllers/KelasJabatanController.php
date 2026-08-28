@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Exports\KelasJabatanTemplateExport;
 use App\Imports\KelasJabatanImport;
 use App\Models\KelasJabatan;
+use App\Support\SpreadsheetImportFailureFormatter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -47,10 +50,34 @@ class KelasJabatanController extends Controller
             'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
         ]);
 
-        Excel::import(new KelasJabatanImport((int) $request->user()->unit_kerja_id), $request->file('file'));
+        $unitKerjaId = (int) $request->user()->unit_kerja_id;
+        if (!$unitKerjaId) {
+            throw ValidationException::withMessages([
+                'file' => 'Akun harus memiliki unit kerja sebelum melakukan import kelas jabatan.',
+            ]);
+        }
+
+        $import = new KelasJabatanImport($unitKerjaId);
+
+        try {
+            DB::transaction(function () use ($import, $request) {
+                Excel::import($import, $request->file('file'));
+
+                $failureMessages = SpreadsheetImportFailureFormatter::messages($import->failures());
+                if ($failureMessages !== []) {
+                    throw ValidationException::withMessages(['file' => $failureMessages]);
+                }
+            });
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withInput()->with('error', 'Import kelas jabatan gagal karena terjadi kesalahan internal. Tidak ada data yang disimpan.');
+        }
 
         return redirect()->route('kelas-jabatan.index')
-            ->with('success', 'Import kelas jabatan unit berhasil selesai. Baris dengan nomor kelas yang sudah ada pada unit ini akan diperbarui.');
+            ->with('success', "Import kelas jabatan selesai. {$import->createdCount} data baru ditambahkan, {$import->updatedCount} data diperbarui.");
     }
 
     public function downloadTemplate()
