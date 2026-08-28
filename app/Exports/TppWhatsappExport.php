@@ -7,11 +7,12 @@ use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Hyperlink;
 use PhpOffice\PhpSpreadsheet\Style\Color;
 
-class TppWhatsappExport implements FromCollection, WithHeadings, WithEvents, ShouldAutoSize
+class TppWhatsappExport extends SafeExcelValueBinder implements FromCollection, WithHeadings, WithEvents, ShouldAutoSize, WithCustomValueBinder
 {
     public function __construct(protected Collection $rows)
     {

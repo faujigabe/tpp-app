@@ -415,20 +415,29 @@ class TppController extends Controller
 
     public function cetak(Request $request)
     {
+        $filters = $this->validatedReportFilters($request);
+        $request->merge($filters);
         $tpps = $this->baseFilteredQuery($request)->with('pegawai')->get();
-        $pdf = Pdf::loadView('tpp.pdf', compact('tpps', 'request'));
-        return $pdf->download('Laporan_TPP.pdf');
+        $selectedUnitKerjaId = $this->resolveSelectedUnitKerjaId($request);
+        $activeUnitKerja = $request->user()->isSuperAdmin()
+            ? ($selectedUnitKerjaId ? UnitKerja::find($selectedUnitKerjaId) : null)
+            : $request->user()->unitKerja;
+        $unitKerjaLabel = $activeUnitKerja?->nama_unit ?? 'Semua Unit Kerja';
+        $pdf = Pdf::loadView('tpp.pdf', compact('tpps', 'request', 'unitKerjaLabel'));
+
+        return $pdf->download("Laporan_TPP_{$filters['bulan']}_{$filters['tahun']}.pdf");
     }
 
     public function exportExcel(Request $request)
     {
-        $bulan = $request->bulan ? (int) $request->bulan : null;
-        $tahun = $request->tahun ? (int) $request->tahun : null;
+        $filters = $this->validatedReportFilters($request);
+        $bulan = $filters['bulan'];
+        $tahun = $filters['tahun'];
 
-        $namaFile = 'Laporan_TPP' . ($bulan && $tahun ? "_{$bulan}_{$tahun}" : '') . '.xlsx';
+        $namaFile = "Laporan_TPP_{$bulan}_{$tahun}.xlsx";
 
         return Excel::download(
-            new TppExport($bulan, $tahun, $request->user(), $this->resolveSelectedUnitKerjaId($request)),
+            new TppExport($bulan, $tahun, $request->user(), $this->resolveSelectedUnitKerjaId($request), $filters['search']),
             $namaFile
         );
     }
@@ -436,6 +445,8 @@ class TppController extends Controller
     public function exportWhatsappExcel(Request $request)
     {
         abort_if($request->user()?->isSuperAdmin(), 403, 'Fitur WhatsApp hanya tersedia untuk admin/operator unit kerja.');
+        $filters = $this->validatedReportFilters($request);
+        $request->merge($filters);
 
         $rows = $this->baseFilteredQuery($request)
             ->with('pegawai')
@@ -456,9 +467,7 @@ class TppController extends Controller
                 return $tpp;
             });
 
-        $bulan = $request->bulan ? (int) $request->bulan : null;
-        $tahun = $request->tahun ? (int) $request->tahun : null;
-        $namaFile = 'Laporan_TPP_WA' . ($bulan && $tahun ? "_{$bulan}_{$tahun}" : '') . '.xlsx';
+        $namaFile = "Laporan_TPP_WA_{$filters['bulan']}_{$filters['tahun']}.xlsx";
 
         return Excel::download(new TppWhatsappExport($rows), $namaFile);
     }
@@ -1008,8 +1017,9 @@ class TppController extends Controller
 
     public function rekap(Request $request)
     {
-        $bulan = (int) ($request->get('bulan', date('n')));
-        $tahun = (int) ($request->get('tahun', date('Y')));
+        $filters = $this->validatedReportFilters($request);
+        $bulan = $filters['bulan'];
+        $tahun = $filters['tahun'];
         $bulanNama = [1=>'Januari',2=>'Februari',3=>'Maret',4=>'April',5=>'Mei',6=>'Juni',7=>'Juli',8=>'Agustus',9=>'September',10=>'Oktober',11=>'November',12=>'Desember'];
 
         $availableUnitKerjas = $request->user()->isSuperAdmin()
@@ -1033,17 +1043,18 @@ class TppController extends Controller
 
     public function exportRekapExcel(Request $request)
     {
-        $bulan = $request->bulan ? (int) $request->bulan : (int) now()->month;
-        $tahun = $request->tahun ? (int) $request->tahun : (int) now()->year;
+        $filters = $this->validatedReportFilters($request);
+        $bulan = $filters['bulan'];
+        $tahun = $filters['tahun'];
 
         return Excel::download(new TppRekapExport($bulan, $tahun, $request->user(), $this->resolveSelectedUnitKerjaId($request)), 'Rekap_TPP_' . $bulan . '_' . $tahun . '.xlsx');
     }
 
     public function rekapSipd(Request $request)
     {
-        $defaultPeriod = Carbon::now()->startOfMonth()->subMonth();
-        $bulan = $request->filled('bulan') ? (int) $request->bulan : (int) $defaultPeriod->month;
-        $tahun = $request->filled('tahun') ? (int) $request->tahun : (int) $defaultPeriod->year;
+        $filters = $this->validatedReportFilters($request);
+        $bulan = $filters['bulan'];
+        $tahun = $filters['tahun'];
         $availableUnitKerjas = $request->user()->isSuperAdmin()
             ? UnitKerja::query()->orderBy('nama_unit')->get()
             : collect();
@@ -1069,9 +1080,9 @@ class TppController extends Controller
 
     public function exportRekapSipdExcel(Request $request)
     {
-        $defaultPeriod = Carbon::now()->startOfMonth()->subMonth();
-        $bulan = $request->filled('bulan') ? (int) $request->bulan : (int) $defaultPeriod->month;
-        $tahun = $request->filled('tahun') ? (int) $request->tahun : (int) $defaultPeriod->year;
+        $filters = $this->validatedReportFilters($request);
+        $bulan = $filters['bulan'];
+        $tahun = $filters['tahun'];
 
         return Excel::download(new TppSipdExport($bulan, $tahun, $request->user(), $this->resolveSelectedUnitKerjaId($request)), 'Rekap_SIPD_' . $bulan . '_' . $tahun . '.xlsx');
     }
@@ -1125,6 +1136,24 @@ class TppController extends Controller
         $availableUnitKerjas = $availableUnitKerjas ?: UnitKerja::query()->orderBy('nama_unit')->get();
 
         return $availableUnitKerjas->firstWhere('id', $selectedUnitKerjaId) ? $selectedUnitKerjaId : null;
+    }
+
+    private function validatedReportFilters(Request $request): array
+    {
+        $validated = $request->validate([
+            'bulan' => 'nullable|integer|min:1|max:12',
+            'tahun' => 'nullable|integer|min:2000|max:2100',
+            'unit_kerja_id' => 'nullable|integer|exists:unit_kerjas,id',
+            'search' => 'nullable|string|max:100',
+        ]);
+        $defaultPeriod = Carbon::now()->startOfMonth()->subMonth();
+
+        return [
+            'bulan' => isset($validated['bulan']) ? (int) $validated['bulan'] : (int) $defaultPeriod->month,
+            'tahun' => isset($validated['tahun']) ? (int) $validated['tahun'] : (int) $defaultPeriod->year,
+            'unit_kerja_id' => isset($validated['unit_kerja_id']) ? (int) $validated['unit_kerja_id'] : null,
+            'search' => trim((string) ($validated['search'] ?? '')),
+        ];
     }
 
     private function authorizeTpp(Request $request, Tpp $tpp): void

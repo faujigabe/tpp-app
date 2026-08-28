@@ -1,14 +1,15 @@
 <h3 style="text-align:center;">
 PEMERINTAH PROVINSI SUMATERA UTARA<br>
-BIRO ADMINISTRASI PEMBANGUNAN
+{{ strtoupper($unitKerjaLabel ?? 'SEMUA UNIT KERJA') }}
 </h3>
 <hr>
 <h2 style="text-align:center;">LAPORAN TAMBAHAN PENGHASILAN PEGAWAI (TPP)</h2>
 
-<h2 style="text-align:center;">LAPORAN TPP</h2>
-
 @if($request->bulan && $request->tahun)
-<p>Bulan: {{ $request->bulan }} / {{ $request->tahun }}</p>
+@php
+    $bulanNama = [1=>'Januari',2=>'Februari',3=>'Maret',4=>'April',5=>'Mei',6=>'Juni',7=>'Juli',8=>'Agustus',9=>'September',10=>'Oktober',11=>'November',12=>'Desember'];
+@endphp
+<p style="text-align:center;">Bulan {{ $bulanNama[(int) $request->bulan] ?? $request->bulan }} Tahun {{ $request->tahun }}</p>
 @endif
 
 <table width="100%" border="1" cellspacing="0" cellpadding="5">
@@ -24,7 +25,7 @@ BIRO ADMINISTRASI PEMBANGUNAN
         </tr>
     </thead>
     <tbody>
-        @foreach($tpps as $tpp)
+        @forelse($tpps as $tpp)
         <tr>
             <td>{{ $tpp->referensi_nama }}</td>
             <td>{{ number_format($tpp->tambahan_tpp ?? 0,0,',','.') }}</td>
@@ -34,17 +35,23 @@ BIRO ADMINISTRASI PEMBANGUNAN
             <td>{{ number_format($tpp->zakat,0,',','.') }}</td>
             <td><strong>{{ number_format($tpp->total_diterima,0,',','.') }}</strong></td>
         </tr>
-        @endforeach
+        @empty
+        <tr>
+            <td colspan="7" style="text-align:center;">Tidak ada data TPP untuk periode yang dipilih.</td>
+        </tr>
+        @endforelse
     </tbody>
 
     @php
 $total_semua = $tpps->sum('total_diterima');
 @endphp
 
+@if($tpps->isNotEmpty())
 <tr>
     <td colspan="6"><strong>Total Keseluruhan</strong></td>
     <td><strong>{{ number_format($total_semua,0,',','.') }}</strong></td>
 </tr>
+@endif
 
 </table>
 

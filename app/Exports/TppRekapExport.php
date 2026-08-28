@@ -12,7 +12,6 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
@@ -21,12 +20,13 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Maatwebsite\Excel\Events\AfterSheet;
 use App\Support\TppRekapBuilder;
 
-class TppRekapExport extends DefaultValueBinder implements FromCollection, WithMapping, ShouldAutoSize, WithEvents, WithCustomValueBinder
+class TppRekapExport extends SafeExcelValueBinder implements FromCollection, WithMapping, ShouldAutoSize, WithEvents, WithCustomValueBinder
 {
     protected Collection $rows;
     protected string $bulanLabel;
     protected int $tahun;
     protected int $headingRow = 5;
+    protected int $rowNumber = 0;
     protected ?User $user = null;
     protected ?int $selectedUnitKerjaId = null;
 
@@ -129,11 +129,10 @@ class TppRekapExport extends DefaultValueBinder implements FromCollection, WithM
 
         $calc = TppRekapBuilder::rowFromTpp($row);
 
-        static $no = 0;
-        $no++;
+        $this->rowNumber++;
 
         return [
-            $no,
+            $this->rowNumber,
             $row->referensi_nama,
             (string) $row->referensi_nip,
             (string) $row->referensi_nomor_rekening,
