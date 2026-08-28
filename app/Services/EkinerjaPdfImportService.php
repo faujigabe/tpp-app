@@ -21,7 +21,11 @@ class EkinerjaPdfImportService
         }
 
         $parsedPeriod = $this->extractPeriod($text);
-        if ($parsedPeriod && ((int) $parsedPeriod['bulan'] !== $bulan || (int) $parsedPeriod['tahun'] !== $tahun)) {
+        if (!$parsedPeriod) {
+            throw new RuntimeException('Periode PDF tidak dapat dikenali. Pastikan PDF memuat keterangan bulan dan tahun e-Kinerja.');
+        }
+
+        if ((int) $parsedPeriod['bulan'] !== $bulan || (int) $parsedPeriod['tahun'] !== $tahun) {
             throw new RuntimeException(sprintf(
                 'Periode PDF tidak sesuai. PDF terbaca untuk %s %d, sedangkan input TPP menggunakan %s %d.',
                 $this->monthName((int) $parsedPeriod['bulan']),
@@ -32,10 +36,13 @@ class EkinerjaPdfImportService
         }
 
         $records = $this->parseRecords($text);
+        if ($records === []) {
+            throw new RuntimeException('Tidak ada baris nilai e-Kinerja yang dapat dibaca dari PDF.');
+        }
 
         $pegawaiByNip = $pegawais
             ->filter(fn ($pegawai) => filled($pegawai->nip))
-            ->keyBy(fn ($pegawai) => $this->normalizeNip((string) $pegawai->nip));
+            ->groupBy(fn ($pegawai) => $this->normalizeNip((string) $pegawai->nip));
 
         $pegawaiByNama = $pegawais
             ->filter(fn ($pegawai) => filled($pegawai->nama))
@@ -54,8 +61,9 @@ class EkinerjaPdfImportService
 
             $nip = $this->normalizeNip((string) ($record['nip'] ?? ''));
             if ($nip !== '') {
-                $pegawai = $pegawaiByNip->get($nip);
-                if ($pegawai) {
+                $nipMatches = $pegawaiByNip->get($nip, collect());
+                if ($nipMatches->count() === 1) {
+                    $pegawai = $nipMatches->first();
                     $matchBy = 'nip';
                 }
             }
@@ -72,8 +80,16 @@ class EkinerjaPdfImportService
                 continue;
             }
 
+            $pegawaiId = (int) $pegawai->id;
+            if (array_key_exists($pegawaiId, $matched)) {
+                throw new RuntimeException(sprintf(
+                    'PDF memuat lebih dari satu baris untuk pegawai %s. Periksa data ganda sebelum mengimpor.',
+                    (string) $pegawai->nama
+                ));
+            }
+
             $matchedBy[$matchBy]++;
-            $matched[(int) $pegawai->id] = [
+            $matched[$pegawaiId] = [
                 'nip' => $nip,
                 'nama_pdf' => $record['nama'],
                 'nama_pegawai' => $pegawai->nama,
