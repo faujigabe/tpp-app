@@ -119,6 +119,12 @@ class KelasJabatanController extends Controller
     public function destroy(Request $request, KelasJabatan $kelas_jabatan): RedirectResponse
     {
         $this->authorizeKelasJabatan($request, $kelas_jabatan);
+
+        if ($kelas_jabatan->pegawais()->exists()) {
+            return redirect()->route('kelas-jabatan.index')
+                ->with('error', 'Kelas jabatan tidak dapat dihapus karena masih digunakan oleh pegawai. Pindahkan pegawai ke kelas lain terlebih dahulu.');
+        }
+
         $kelas_jabatan->delete();
 
         return redirect()->route('kelas-jabatan.index')->with('success', 'Kelas jabatan unit berhasil dihapus.');

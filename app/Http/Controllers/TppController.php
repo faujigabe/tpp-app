@@ -624,10 +624,7 @@ class TppController extends Controller
         }
 
         $hasData = Tpp::query()
-            ->where(function ($query) use ($data) {
-                $query->where('unit_kerja_id', (int) $data['unit_kerja_id'])
-                    ->orWhereHas('pegawai', fn ($pegawaiQuery) => $pegawaiQuery->where('unit_kerja_id', (int) $data['unit_kerja_id']));
-            })
+            ->forUnit((int) $data['unit_kerja_id'])
             ->where('bulan', (int) $data['bulan'])
             ->where('tahun', (int) $data['tahun'])
             ->exists();
@@ -732,7 +729,7 @@ class TppController extends Controller
     }
     private function abortIfTppNotEditable(Tpp $tpp): void
     {
-        $unitKerjaId = (int) ($tpp->pegawai?->unit_kerja_id ?? $tpp->unit_kerja_id);
+        $unitKerjaId = (int) ($tpp->unit_kerja_id ?? $tpp->pegawai?->unit_kerja_id);
         $this->abortIfPeriodNotEditableByUnit($unitKerjaId, (int) $tpp->bulan, (int) $tpp->tahun);
     }
 
@@ -1112,14 +1109,7 @@ class TppController extends Controller
             return $query;
         }
 
-        return $query->where(function ($inner) use ($targetUnitKerjaId) {
-            $inner->whereHas('pegawai', function ($pegawaiQuery) use ($targetUnitKerjaId) {
-                $pegawaiQuery->where('unit_kerja_id', $targetUnitKerjaId);
-            })->orWhere(function ($fallbackQuery) use ($targetUnitKerjaId) {
-                $fallbackQuery->whereNull('pegawai_id')
-                    ->where('unit_kerja_id', $targetUnitKerjaId);
-            });
-        });
+        return $query->forUnit((int) $targetUnitKerjaId);
     }
 
     private function resolveSelectedUnitKerjaId(Request $request, $availableUnitKerjas = null): ?int
@@ -1158,7 +1148,7 @@ class TppController extends Controller
 
     private function authorizeTpp(Request $request, Tpp $tpp): void
     {
-        $resolvedUnitKerjaId = $tpp->pegawai?->unit_kerja_id ?? $tpp->unit_kerja_id;
+        $resolvedUnitKerjaId = $tpp->unit_kerja_id ?? $tpp->pegawai?->unit_kerja_id;
         abort_unless($request->user()->canAccessUnit($resolvedUnitKerjaId), 403, 'Akses ditolak');
     }
 

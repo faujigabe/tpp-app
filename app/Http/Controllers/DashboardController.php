@@ -101,16 +101,7 @@ class DashboardController extends Controller
             $pegawaiAktifPeriodeScope = (clone $pegawaiScope)->activeForPeriod($bulan, $tahun);
 
             $targetUnitKerjaId = $request->user()->isSuperAdmin() ? $selectedUnitKerjaId : (int) $request->user()->unit_kerja_id;
-            $tppScope = Tpp::query()
-                ->when($targetUnitKerjaId, function ($q) use ($targetUnitKerjaId) {
-                    $q->where(function ($inner) use ($targetUnitKerjaId) {
-                        $inner->whereHas('pegawai', fn ($pegawaiQuery) => $pegawaiQuery->where('unit_kerja_id', $targetUnitKerjaId))
-                            ->orWhere(function ($fallbackQuery) use ($targetUnitKerjaId) {
-                                $fallbackQuery->whereNull('pegawai_id')
-                                    ->where('unit_kerja_id', $targetUnitKerjaId);
-                            });
-                    });
-                });
+            $tppScope = Tpp::query()->forUnit($targetUnitKerjaId);
             $userScope = User::query()
                 ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->where('unit_kerja_id', $request->user()->unit_kerja_id))
                 ->when($request->user()->isSuperAdmin() && $selectedUnitKerjaId, fn ($q) => $q->where('unit_kerja_id', $selectedUnitKerjaId));

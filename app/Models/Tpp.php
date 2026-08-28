@@ -48,6 +48,21 @@ class Tpp extends Model
         return Arr::get($this->pegawai_snapshot ?? [], $key, $default);
     }
 
+    public function scopeForUnit($query, ?int $unitKerjaId)
+    {
+        if (!$unitKerjaId) {
+            return $query;
+        }
+
+        return $query->where(function ($inner) use ($unitKerjaId) {
+            $inner->where($this->qualifyColumn('unit_kerja_id'), $unitKerjaId)
+                ->orWhere(function ($fallback) use ($unitKerjaId) {
+                    $fallback->whereNull($this->qualifyColumn('unit_kerja_id'))
+                        ->whereHas('pegawai', fn ($pegawaiQuery) => $pegawaiQuery->where('unit_kerja_id', $unitKerjaId));
+                });
+        });
+    }
+
 
     private function snapshotPreferred(string $key, $liveValue = null, $default = null)
     {
