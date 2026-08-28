@@ -21,10 +21,22 @@ class PegawaiManagementIntegrityTest extends TestCase
         $pegawai = $this->makePegawai($unitLama, $kelasLama);
 
         $riwayat = $this->makeTpp($pegawai, $unitLama, 1);
+        $this->assertSame(
+            $unitLama->id,
+            Tpp::query()->whereKey($riwayat->id)->value('unit_kerja_id'),
+            'Unit historis TPP tidak tersimpan saat data dibuat.'
+        );
+
         $pegawai->update([
             'unit_kerja_id' => $unitBaru->id,
             'kelas_jabatan_id' => $kelasBaru->id,
         ]);
+
+        $this->assertSame(
+            $unitLama->id,
+            Tpp::query()->whereKey($riwayat->id)->value('unit_kerja_id'),
+            'Unit historis TPP berubah ketika pegawai dimutasi.'
+        );
 
         $this->assertTrue(Tpp::query()->forUnit($unitLama->id)->whereKey($riwayat->id)->exists());
         $this->assertFalse(Tpp::query()->forUnit($unitBaru->id)->whereKey($riwayat->id)->exists());
