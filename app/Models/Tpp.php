@@ -55,9 +55,9 @@ class Tpp extends Model
         }
 
         return $query->where(function ($inner) use ($unitKerjaId) {
-            $inner->where('unit_kerja_id', $unitKerjaId)
+            $inner->where($this->qualifyColumn('unit_kerja_id'), $unitKerjaId)
                 ->orWhere(function ($fallback) use ($unitKerjaId) {
-                    $fallback->whereNull('unit_kerja_id')
+                    $fallback->whereNull($this->qualifyColumn('unit_kerja_id'))
                         ->whereHas('pegawai', fn ($pegawaiQuery) => $pegawaiQuery->where('unit_kerja_id', $unitKerjaId));
                 });
         });
