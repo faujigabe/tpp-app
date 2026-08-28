@@ -99,11 +99,14 @@ class TppApproval extends Model
 
     public function normalizedStatus(): string
     {
-        $status = $this->status ?: self::STATUS_DRAFT;
+        if ($this->status === null || $this->status === '') {
+            return self::STATUS_DRAFT;
+        }
 
-        return in_array($status, self::statuses(), true)
-            ? $status
-            : self::STATUS_DRAFT;
+        // Status tidak dikenal harus gagal aman dan tidak membuka izin edit.
+        return in_array($this->status, self::statuses(), true)
+            ? $this->status
+            : self::STATUS_LOCKED;
     }
 
     public function isDraft(): bool
@@ -124,6 +127,21 @@ class TppApproval extends Model
     public function canBeEdited(): bool
     {
         return $this->isDraft();
+    }
+
+    public function canBeSubmitted(): bool
+    {
+        return $this->isDraft();
+    }
+
+    public function canBeLocked(): bool
+    {
+        return $this->isSubmitted();
+    }
+
+    public function canBeUnlocked(): bool
+    {
+        return $this->isSubmitted() || $this->isLocked();
     }
 
     public function appendHistory(string $actionLabel, ?string $actorName = null, ?string $note = null): void
