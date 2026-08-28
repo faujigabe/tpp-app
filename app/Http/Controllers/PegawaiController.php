@@ -266,7 +266,11 @@ class PegawaiController extends Controller
         }
 
         $photoPaths = $pegawais->pluck('foto_profil')->filter()->values()->all();
-        $deleted = DB::transaction(fn () => $query->delete());
+        $deleted = DB::transaction(function () use ($pegawais) {
+            $pegawais->each->delete();
+
+            return $pegawais->count();
+        });
         if ($photoPaths !== []) {
             Storage::disk('public')->delete($photoPaths);
         }

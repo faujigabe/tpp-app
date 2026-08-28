@@ -172,6 +172,56 @@ php artisan test
 
 Jangan mengubah `DB_DATABASE` pada `phpunit.xml` menjadi database aplikasi utama.
 
+## Audit Log dan Retensi
+
+Perubahan pada TPP, pegawai, akun pengguna, kelas jabatan, unit kerja, dan persetujuan periode dicatat pada menu **Jejak Perubahan** yang hanya dapat diakses super admin. Catatan mencakup pelaku, waktu, unit, alamat IP, serta nilai sebelum dan sesudah. Password, token, dan foto tidak dicatat.
+
+Audit log disimpan selama lima tahun. Pembersihan otomatis dijalankan oleh Laravel Scheduler setiap awal bulan dan dapat dijalankan manual dengan:
+
+```bash
+php artisan audit:prune
+```
+
+## Backup dan Restore
+
+Atur lokasi backup pada `.env`. Gunakan drive yang dilindungi BitLocker atau enkripsi penyimpanan. Lokasi mingguan harus berada pada media atau perangkat yang berbeda dari database utama.
+
+```env
+BACKUP_LOCAL_PATH="C:\laragon\backups\tpp-daily"
+BACKUP_WEEKLY_PATH="D:\tpp-backups-weekly"
+MYSQLDUMP_BINARY=mysqldump
+MYSQL_BINARY=mysql
+BACKUP_LOCAL_RETENTION_DAYS=14
+BACKUP_WEEKLY_RETENTION_DAYS=365
+AUDIT_RETENTION_YEARS=5
+```
+
+Uji backup secara manual:
+
+```bash
+php artisan database:backup
+php artisan database:backup --weekly
+```
+
+Setiap arsip `.sql.gz` disertai file `.sha256`. Restore menolak arsip tanpa checksum yang valid. Restore bersifat destruktif dan hanya boleh dilakukan setelah membuat backup kondisi database saat ini:
+
+```bash
+php artisan database:restore "D:\tpp-backups-weekly\tpp_20260828_020000.sql.gz" --confirm=RESTORE
+php artisan optimize:clear
+```
+
+Laravel Scheduler harus dipanggil setiap menit. Pada Windows, buat satu tugas di **Task Scheduler** yang menjalankan perintah berikut dari folder aplikasi:
+
+```bat
+php artisan schedule:run
+```
+
+Jadwal aplikasi:
+
+- backup lokal setiap hari pukul 01.00;
+- backup mingguan ke lokasi terpisah setiap Minggu pukul 02.00;
+- pembersihan audit log setiap tanggal 1 pukul 03.00.
+
 ## Struktur Project
 
 Struktur utama aplikasi:

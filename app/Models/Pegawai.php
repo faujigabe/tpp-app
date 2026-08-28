@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
 class Pegawai extends Model
 {
-    use HasFactory;
+    use Auditable, HasFactory;
 
     public const STATUS_AKTIF = 'aktif';
     public const STATUS_MUTASI = 'mutasi';
