@@ -49,6 +49,17 @@ class Pegawai extends Model
         'nonaktif_sejak' => 'date',
     ];
 
+    protected static function booted(): void
+    {
+        static::updated(function (Pegawai $pegawai) {
+            if ($pegawai->wasChanged('unit_kerja_id')) {
+                $pegawai->userAccounts()->update([
+                    'unit_kerja_id' => $pegawai->unit_kerja_id,
+                ]);
+            }
+        });
+    }
+
     public function kelasJabatan()
     {
         return $this->belongsTo(KelasJabatan::class, 'kelas_jabatan_id');
@@ -143,5 +154,9 @@ class Pegawai extends Model
     {
         return $this->hasOne(User::class);
     }
-}
 
+    public function userAccounts()
+    {
+        return $this->hasMany(User::class);
+    }
+}

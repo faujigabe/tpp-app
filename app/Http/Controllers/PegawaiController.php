@@ -138,17 +138,16 @@ class PegawaiController extends Controller
     {
         $this->authorizePegawai($request, $pegawai);
         $validated = $this->validatedData($request, $pegawai->id);
+        $oldPhotoPath = $pegawai->foto_profil;
+        $newPhotoPath = null;
 
-        if (($validated['hapus_foto_profil'] ?? false) && $pegawai->foto_profil) {
-            Storage::disk('public')->delete($pegawai->foto_profil);
+        if (($validated['hapus_foto_profil'] ?? false) && $oldPhotoPath) {
             $validated['foto_profil'] = null;
         }
 
         if ($request->hasFile('foto_profil')) {
-            if ($pegawai->foto_profil) {
-                Storage::disk('public')->delete($pegawai->foto_profil);
-            }
-            $validated['foto_profil'] = $request->file('foto_profil')->store('foto-profil', 'public');
+            $newPhotoPath = $request->file('foto_profil')->store('foto-profil', 'public');
+            $validated['foto_profil'] = $newPhotoPath;
         }
 
         unset($validated['hapus_foto_profil']);
@@ -162,7 +161,19 @@ class PegawaiController extends Controller
             $validated['nonaktif_sejak'] = $validated['nonaktif_sejak'] ?? now()->toDateString();
         }
 
-        $pegawai->update($validated);
+        try {
+            DB::transaction(fn () => $pegawai->update($validated));
+        } catch (\Throwable $e) {
+            if ($newPhotoPath) {
+                Storage::disk('public')->delete($newPhotoPath);
+            }
+
+            throw $e;
+        }
+
+        if ($oldPhotoPath && array_key_exists('foto_profil', $validated) && $validated['foto_profil'] !== $oldPhotoPath) {
+            Storage::disk('public')->delete($oldPhotoPath);
+        }
 
         return redirect()->route('pegawai.index')->with('success', 'Data pegawai berhasil diperbarui');
     }
@@ -235,22 +246,30 @@ class PegawaiController extends Controller
         $query = $this->pegawaiScope($request)->whereIn('id', $validated['pegawai_ids']);
         $pegawais = $query->get();
 
-        $blockedNames = [];
+        $blockedHistoryNames = [];
+        $blockedAccountNames = [];
         foreach ($pegawais as $pegawai) {
             if ($this->hasEditableTppHistory($pegawai)) {
-                $blockedNames[] = $pegawai->nama;
+                $blockedHistoryNames[] = $pegawai->nama;
+            }
+            if ($pegawai->userAccounts()->exists()) {
+                $blockedAccountNames[] = $pegawai->nama;
             }
         }
 
-        if (! empty($blockedNames)) {
-            return redirect()->route('pegawai.index')->with('error', 'Sebagian data tidak dapat dihapus karena masih memiliki riwayat TPP draft/submitted. Kunci dulu periode lama atau hapus data TPP yang belum final. Pegawai: ' . implode(', ', $blockedNames));
+        if (! empty($blockedHistoryNames)) {
+            return redirect()->route('pegawai.index')->with('error', 'Sebagian data tidak dapat dihapus karena masih memiliki riwayat TPP draft/submitted. Kunci dulu periode lama atau hapus data TPP yang belum final. Pegawai: ' . implode(', ', $blockedHistoryNames));
         }
-        foreach ($pegawais as $pegawai) {
-            if ($pegawai->foto_profil) {
-                Storage::disk('public')->delete($pegawai->foto_profil);
-            }
+
+        if (! empty($blockedAccountNames)) {
+            return redirect()->route('pegawai.index')->with('error', 'Sebagian data tidak dapat dihapus karena masih terhubung dengan akun pengguna. Lepaskan atau hapus akun pengguna terlebih dahulu. Pegawai: ' . implode(', ', $blockedAccountNames));
         }
-        $deleted = $query->delete();
+
+        $photoPaths = $pegawais->pluck('foto_profil')->filter()->values()->all();
+        $deleted = DB::transaction(fn () => $query->delete());
+        if ($photoPaths !== []) {
+            Storage::disk('public')->delete($photoPaths);
+        }
 
         return redirect()->route('pegawai.index')->with('success', $deleted . ' data pegawai berhasil dihapus.');
     }
@@ -263,10 +282,15 @@ class PegawaiController extends Controller
             return redirect()->route('pegawai.index')->with('error', 'Pegawai tidak dapat dihapus karena masih memiliki riwayat TPP draft/submitted. Finalkan atau hapus dulu periode yang belum terkunci.');
         }
 
-        if ($pegawai->foto_profil) {
-            Storage::disk('public')->delete($pegawai->foto_profil);
+        if ($pegawai->userAccounts()->exists()) {
+            return redirect()->route('pegawai.index')->with('error', 'Pegawai tidak dapat dihapus karena masih terhubung dengan akun pengguna. Lepaskan atau hapus akun pengguna terlebih dahulu.');
         }
-        $pegawai->delete();
+
+        $photoPath = $pegawai->foto_profil;
+        DB::transaction(fn () => $pegawai->delete());
+        if ($photoPath) {
+            Storage::disk('public')->delete($photoPath);
+        }
 
         return redirect()->route('pegawai.index')->with('success', 'Data pegawai berhasil dihapus');
     }

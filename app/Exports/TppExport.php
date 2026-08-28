@@ -26,15 +26,7 @@ class TppExport extends SafeExcelValueBinder implements FromCollection, WithHead
             : $this->selectedUnitKerjaId;
 
         $q = Tpp::with(['pegawai', 'pegawai.unitKerja'])
-            ->when($targetUnitKerjaId, function ($query) use ($targetUnitKerjaId) {
-                $query->where(function ($inner) use ($targetUnitKerjaId) {
-                    $inner->whereHas('pegawai', fn ($pegawaiQuery) => $pegawaiQuery->where('unit_kerja_id', $targetUnitKerjaId))
-                        ->orWhere(function ($fallbackQuery) use ($targetUnitKerjaId) {
-                            $fallbackQuery->whereNull('pegawai_id')
-                                ->where('unit_kerja_id', $targetUnitKerjaId);
-                        });
-                });
-            });
+            ->forUnit($targetUnitKerjaId);
 
         if ($this->bulan) {
             $q->where('bulan', $this->bulan);

@@ -43,15 +43,7 @@ class TppSipdExport extends StringValueBinder implements FromCollection, WithHea
             : $this->selectedUnitKerjaId;
 
         $rows = Tpp::with(['pegawai.kelasJabatan', 'pegawai.unitKerja'])
-            ->when($targetUnitKerjaId, function ($query) use ($targetUnitKerjaId) {
-                $query->where(function ($inner) use ($targetUnitKerjaId) {
-                    $inner->whereHas('pegawai', fn ($pegawaiQuery) => $pegawaiQuery->where('unit_kerja_id', $targetUnitKerjaId))
-                        ->orWhere(function ($fallbackQuery) use ($targetUnitKerjaId) {
-                            $fallbackQuery->whereNull('pegawai_id')
-                                ->where('unit_kerja_id', $targetUnitKerjaId);
-                        });
-                });
-            })
+            ->forUnit($targetUnitKerjaId)
             ->where('bulan', $this->bulan)
             ->where('tahun', $this->tahun)
             ->orderByRaw("COALESCE((SELECT nama FROM pegawais WHERE pegawais.id = tpps.pegawai_id), JSON_UNQUOTE(JSON_EXTRACT(pegawai_snapshot, '$.nama'))) asc")
