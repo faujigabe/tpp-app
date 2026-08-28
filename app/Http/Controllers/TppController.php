@@ -567,8 +567,8 @@ class TppController extends Controller
         $tahun = (int) $data['tahun'];
         $approval = $this->getOrInitializeApproval($unitKerjaId, $bulan, $tahun);
 
-        if ($approval->isLocked()) {
-            return back()->with('error', 'Periode TPP ini sudah dikunci oleh super admin.');
+        if (!$approval->canBeSubmitted()) {
+            return back()->with('error', 'Hanya periode berstatus draft yang dapat dikirim untuk validasi.');
         }
 
         $hasData = $this->tppUnitScope(Tpp::query(), $request)
@@ -602,12 +602,15 @@ class TppController extends Controller
         ]);
 
         $approval = $this->getOrInitializeApproval((int) $data['unit_kerja_id'], (int) $data['bulan'], (int) $data['tahun']);
-        if (!$approval->isSubmitted()) {
+        if (!$approval->canBeLocked()) {
             return back()->with('error', 'TPP hanya dapat dikunci setelah dikirim oleh admin/operator unit kerja.');
         }
 
         $hasData = Tpp::query()
-            ->where('unit_kerja_id', (int) $data['unit_kerja_id'])
+            ->where(function ($query) use ($data) {
+                $query->where('unit_kerja_id', (int) $data['unit_kerja_id'])
+                    ->orWhereHas('pegawai', fn ($pegawaiQuery) => $pegawaiQuery->where('unit_kerja_id', (int) $data['unit_kerja_id']));
+            })
             ->where('bulan', (int) $data['bulan'])
             ->where('tahun', (int) $data['tahun'])
             ->exists();
@@ -638,7 +641,7 @@ class TppController extends Controller
         ]);
 
         $approval = $this->getOrInitializeApproval((int) $data['unit_kerja_id'], (int) $data['bulan'], (int) $data['tahun']);
-        if ($approval->isDraft()) {
+        if (!$approval->canBeUnlocked()) {
             return back()->with('error', 'Periode ini sudah berada pada status draft.');
         }
 
