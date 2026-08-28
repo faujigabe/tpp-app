@@ -398,10 +398,16 @@ class TppController extends Controller
 
         $this->abortIfPeriodNotEditableByRequest($request, (int) $data['bulan'], (int) $data['tahun']);
 
-        $deleted = $this->tppUnitScope(Tpp::query(), $request)
+        $tpps = $this->tppUnitScope(Tpp::query(), $request)
             ->where('bulan', (int) $data['bulan'])
             ->where('tahun', (int) $data['tahun'])
-            ->delete();
+            ->get();
+
+        $deleted = DB::transaction(function () use ($tpps) {
+            $tpps->each->delete();
+
+            return $tpps->count();
+        });
 
         if ($deleted === 0) {
             return back()->with('error', 'Tidak ada data TPP pada bulan dan tahun tersebut untuk dihapus.');

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -11,7 +12,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use Auditable, HasApiTokens, HasFactory, Notifiable;
+
+    protected array $auditInclude = [
+        'name',
+        'email',
+        'role',
+        'pegawai_id',
+        'unit_kerja_id',
+        'nip',
+    ];
 
     /**
      * The attributes that are mass assignable.
@@ -73,4 +83,3 @@ class User extends Authenticatable
         return $unitKerjaId !== null && (int) $this->unit_kerja_id === (int) $unitKerjaId;
     }
 }
-

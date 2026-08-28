@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 
 class Tpp extends Model
 {
+    use Auditable;
+
         protected $fillable = [
         'pegawai_id',
         'unit_kerja_id',
