@@ -96,7 +96,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Password Baru</label>
-                            <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" placeholder="Isi jika ingin reset password">
+                            <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" placeholder="Minimal 8 karakter jika diubah">
                             @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 

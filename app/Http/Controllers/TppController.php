@@ -881,11 +881,12 @@ class TppController extends Controller
             : collect();
         $selectedUnitKerjaId = $this->resolveSelectedUnitKerjaId($request, $availableUnitKerjas);
 
-        $q = $this->tppUnitScope(Tpp::query(), $request, $selectedUnitKerjaId);
         $defaultPeriod = Carbon::now()->startOfMonth()->subMonth();
         $user = $request->user();
 
         if ($user?->role === 'viewer') {
+            $q = Tpp::query();
+
             if (!$user->pegawai_id) {
                 return $q->whereRaw('1 = 0');
             }
@@ -902,6 +903,8 @@ class TppController extends Controller
 
             return $q;
         }
+
+        $q = $this->tppUnitScope(Tpp::query(), $request, $selectedUnitKerjaId);
 
         $bulan = $request->filled('bulan') ? (int) $request->bulan : (int) $defaultPeriod->month;
         $tahun = $request->filled('tahun') ? (int) $request->tahun : (int) $defaultPeriod->year;
