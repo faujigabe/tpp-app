@@ -3,9 +3,21 @@
 namespace App\Support;
 
 use App\Models\Pegawai;
+use App\Models\Tpp;
 
 class PegawaiSnapshotFactory
 {
+    public static function fromTpp(Tpp $tpp): array
+    {
+        $snapshot = $tpp->pegawai_snapshot;
+
+        if (is_array($snapshot) && $snapshot !== []) {
+            return $snapshot;
+        }
+
+        return self::fromPegawai($tpp->pegawai);
+    }
+
     public static function fromPegawai(?Pegawai $pegawai): array
     {
         if (! $pegawai) {

@@ -518,7 +518,7 @@ class TppController extends Controller
 
                 $hitungPajak = (bool) ((int) ($row['hitung_pajak'] ?? 0));
 
-                $snapshot = $this->buildPegawaiSnapshot($tpp->pegawai);
+                $snapshot = PegawaiSnapshotFactory::fromTpp($tpp);
                 $hasil = $this->calculator->calculateFromSnapshot(
                     $snapshot,
                     (float) $row['produktivitas'],
@@ -963,7 +963,7 @@ class TppController extends Controller
         $potonganTpp = (float) $validated['potongan_tpp'];
         $hitungPajak = (bool) ((int) ($validated['hitung_pajak'] ?? 0));
 
-        $snapshot = $this->buildPegawaiSnapshot($tpp->pegawai);
+        $snapshot = PegawaiSnapshotFactory::fromTpp($tpp);
         $hasil = $this->calculator->calculateFromSnapshot($snapshot, $prod, $keh, $per, $bpjs, $tambahanTpp, $potonganTpp, $hitungPajak);
 
         $tpp->update([
