@@ -316,14 +316,14 @@
       <input type="hidden" name="tahun" value="{{ $tahunNow }}">
       <div class="col-md-6">
         <label class="form-label">Upload PDF e-Kinerja</label>
-        <input type="file" name="ekinerja_pdf" class="form-control" accept="application/pdf" required>
+        <input type="file" name="ekinerja_pdf" class="form-control" accept="application/pdf" required {{ $selectedStatus !== \App\Models\TppApproval::STATUS_DRAFT ? 'disabled' : '' }}>
       </div>
       <div class="col-md-3">
         <label class="form-label">Periode import</label>
         <input type="text" class="form-control" value="{{ $bulanNama[$bulanNow] ?? $bulanNow }} {{ $tahunNow }}" readonly>
       </div>
       <div class="col-md-3 d-flex gap-2">
-        <button type="submit" class="btn btn-danger btn-icon">
+        <button type="submit" class="btn btn-danger btn-icon" {{ $selectedStatus !== \App\Models\TppApproval::STATUS_DRAFT ? 'disabled' : '' }} title="{{ $selectedStatus !== \App\Models\TppApproval::STATUS_DRAFT ? 'Periode terpilih sedang menunggu validasi atau sudah divalidasi.' : '' }}">
           <i class="bi bi-file-earmark-arrow-up"></i> Import PDF
         </button>
       </div>

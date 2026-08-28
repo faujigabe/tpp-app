@@ -87,7 +87,9 @@ class TppController extends Controller
 
         $periodApproval = $this->getOrInitializeApproval($activeUnitKerja?->id, $selectedBulan, $selectedTahun);
         $ekinerjaImport = session('ekinerja_import');
-        if (($ekinerjaImport['bulan'] ?? null) !== $selectedBulan || ($ekinerjaImport['tahun'] ?? null) !== $selectedTahun) {
+        if (($ekinerjaImport['bulan'] ?? null) !== $selectedBulan
+            || ($ekinerjaImport['tahun'] ?? null) !== $selectedTahun
+            || (int) ($ekinerjaImport['unit_kerja_id'] ?? 0) !== (int) ($activeUnitKerja?->id ?? 0)) {
             $ekinerjaImport = null;
         }
 
@@ -120,6 +122,7 @@ class TppController extends Controller
         $bulan = (int) $validated['bulan'];
         $tahun = (int) $validated['tahun'];
         $unitKerjaId = (int) ($request->user()->unit_kerja_id);
+        $this->abortIfPeriodNotEditableByRequest($request, $bulan, $tahun);
 
         $pegawais = $this->pegawaiScope($request, null, $bulan, $tahun)
             ->with('kelasJabatan')
@@ -128,9 +131,14 @@ class TppController extends Controller
 
         try {
             $result = $pdfImportService->import($request->file('ekinerja_pdf'), $pegawais, $bulan, $tahun);
-        } catch (\Throwable $e) {
+        } catch (\RuntimeException $e) {
             return redirect()->route('tpp.create', ['bulan' => $bulan, 'tahun' => $tahun])
                 ->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()->route('tpp.create', ['bulan' => $bulan, 'tahun' => $tahun])
+                ->with('error', 'PDF e-Kinerja gagal diproses karena terjadi kesalahan internal.');
         }
 
         return redirect()->route('tpp.create', ['bulan' => $bulan, 'tahun' => $tahun])
