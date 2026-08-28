@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\KelasJabatan;
+use App\Rules\SafeSpreadsheetText;
 use Illuminate\Support\Arr;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
@@ -15,6 +16,9 @@ class KelasJabatanImport implements ToModel, WithHeadingRow, WithValidation, Ski
 {
     use SkipsFailures;
 
+    public int $createdCount = 0;
+    public int $updatedCount = 0;
+
     public function __construct(private int $unitKerjaId)
     {
     }
@@ -23,21 +27,24 @@ class KelasJabatanImport implements ToModel, WithHeadingRow, WithValidation, Ski
     {
         $nomorKelas = isset($row['nomor_kelas']) ? (int) $row['nomor_kelas'] : null;
 
-        KelasJabatan::updateOrCreate(
+        $kelas = KelasJabatan::firstOrNew(
             [
                 'unit_kerja_id' => $this->unitKerjaId,
                 'nomor_kelas' => $nomorKelas,
                 'nama_kelas' => trim((string) Arr::get($row, 'nama_kelas', '')),
-            ],
-            [
-                'beban_kerja' => (float) Arr::get($row, 'beban_kerja', 0),
-                'prestasi_kerja' => (float) Arr::get($row, 'prestasi_kerja', 0),
-                'kondisi_kerja' => (float) Arr::get($row, 'kondisi_kerja', 0),
-                'kelangkaan_profesi' => Arr::get($row, 'kelangkaan_profesi') === null || Arr::get($row, 'kelangkaan_profesi') === ''
-                    ? null
-                    : (float) Arr::get($row, 'kelangkaan_profesi'),
             ]
         );
+        $isNew = !$kelas->exists;
+        $kelas->fill([
+            'beban_kerja' => (float) Arr::get($row, 'beban_kerja', 0),
+            'prestasi_kerja' => (float) Arr::get($row, 'prestasi_kerja', 0),
+            'kondisi_kerja' => (float) Arr::get($row, 'kondisi_kerja', 0),
+            'kelangkaan_profesi' => Arr::get($row, 'kelangkaan_profesi') === null || Arr::get($row, 'kelangkaan_profesi') === ''
+                ? null
+                : (float) Arr::get($row, 'kelangkaan_profesi'),
+        ])->save();
+
+        $isNew ? $this->createdCount++ : $this->updatedCount++;
 
         return null;
     }
@@ -46,11 +53,11 @@ class KelasJabatanImport implements ToModel, WithHeadingRow, WithValidation, Ski
     {
         return [
             'nomor_kelas' => ['required', 'integer', 'min:1', 'max:16'],
-            'nama_kelas' => ['required'],
-            'beban_kerja' => ['required', 'numeric'],
-            'prestasi_kerja' => ['required', 'numeric'],
-            'kondisi_kerja' => ['required', 'numeric'],
-            'kelangkaan_profesi' => ['nullable', 'numeric'],
+            'nama_kelas' => ['required', 'string', 'max:255', new SafeSpreadsheetText()],
+            'beban_kerja' => ['required', 'numeric', 'min:0'],
+            'prestasi_kerja' => ['required', 'numeric', 'min:0'],
+            'kondisi_kerja' => ['required', 'numeric', 'min:0'],
+            'kelangkaan_profesi' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 

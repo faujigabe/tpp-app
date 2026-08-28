@@ -8,7 +8,9 @@ use App\Models\KelasJabatan;
 use App\Models\Pegawai;
 use App\Models\UnitKerja;
 use App\Models\TppApproval;
+use App\Support\SpreadsheetImportFailureFormatter;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -181,17 +183,39 @@ class PegawaiController extends Controller
         }
         $request->validate($rules);
 
+        $targetUnitKerjaId = $request->user()->isSuperAdmin()
+            ? (int) $request->integer('unit_kerja_id')
+            : (int) $request->user()->unit_kerja_id;
+        if (!$targetUnitKerjaId) {
+            throw ValidationException::withMessages([
+                'unit_kerja_id' => 'Akun harus memiliki unit kerja tujuan sebelum melakukan import.',
+            ]);
+        }
+
         $import = new PegawaiImport(
             $request->user()->unit_kerja_id,
-            $request->user()->isSuperAdmin() ? (int) $request->integer('unit_kerja_id') : null
+            $request->user()->isSuperAdmin() ? $targetUnitKerjaId : null,
+            $request->user()->isSuperAdmin()
         );
-        Excel::import($import, $request->file('file'));
 
-        $failureCount = count($import->failures());
-        $message = 'Import pegawai selesai. ' . $import->createdCount . ' data baru ditambahkan, ' . $import->updatedCount . ' data diperbarui.';
-        if ($failureCount > 0) {
-            $message .= ' ' . $failureCount . ' baris gagal, periksa format file dan master Kelas Jabatan.';
+        try {
+            DB::transaction(function () use ($import, $request) {
+                Excel::import($import, $request->file('file'));
+
+                $failureMessages = SpreadsheetImportFailureFormatter::messages($import->failures());
+                if ($failureMessages !== []) {
+                    throw ValidationException::withMessages(['file' => $failureMessages]);
+                }
+            });
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withInput()->with('error', 'Import pegawai gagal karena terjadi kesalahan internal. Tidak ada data yang disimpan.');
         }
+
+        $message = 'Import pegawai selesai. ' . $import->createdCount . ' data baru ditambahkan, ' . $import->updatedCount . ' data diperbarui.';
 
         return redirect()->route('pegawai.index')->with('success', $message);
     }

@@ -17,6 +17,10 @@
     </div>
 @endif
 
+@if (session('error'))
+    <div style="color: red; margin-bottom: 16px;">{{ session('error') }}</div>
+@endif
+
 <p>
     Gunakan template agar header kolom sesuai.
     <a href="{{ route('kelas-jabatan.template') }}">Download Template</a>
@@ -36,7 +40,9 @@
     Catatan:
     <ul>
         <li>Nomor Kelas wajib diisi 1-16.</li>
-        <li>Jika Nomor Kelas sudah ada pada unit ini, data akan <b>diupdate</b> (upsert), bukan ditolak.</li>
+        <li>Jika kombinasi Nomor Kelas dan Nama Kelas sudah ada pada unit ini, data akan <b>diupdate</b>.</li>
+        <li>Nilai uang tidak boleh negatif dan formula spreadsheet tidak diperbolehkan.</li>
+        <li>Jika satu baris gagal, seluruh file dibatalkan agar data tidak tersimpan sebagian.</li>
         <li>Kolom kelangkaan_profesi boleh kosong.</li>
     </ul>
 </p>

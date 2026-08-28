@@ -24,6 +24,12 @@
     </div>
 @endif
 
+@if (session('error'))
+    <div class="alert alert-danger shadow-soft border-0">
+        <i class="bi bi-exclamation-octagon me-1"></i>{{ session('error') }}
+    </div>
+@endif
+
 <div class="card shadow-soft border-0">
     <div class="card-body p-4 p-lg-5">
         <div class="row g-4 align-items-start">
@@ -66,7 +72,9 @@
                         <li><strong>Foto profil tidak diimport dari Excel</strong>; unggah manual melalui form tambah/edit pegawai.</li>
                         <li>Golongan harus salah satu: II/A s.d. IV/E.</li>
                         <li>Kelas Jabatan diisi angka 1-16 atau nama kelas yang sama persis dengan master.</li>
-                        <li>NIP tidak boleh duplikat.</li>
+                        <li>NIP harus 18 digit dan NIK, jika diisi, harus 16 digit.</li>
+                        <li>Operator tidak dapat mengubah pegawai yang terdaftar pada unit kerja lain.</li>
+                        <li>Jika satu baris gagal, seluruh file dibatalkan agar data tidak tersimpan sebagian.</li>
                         <li>Import akan masuk ke unit kerja yang dipilih atau unit kerja akun Anda.</li>
                     </ul>
                 </div>
