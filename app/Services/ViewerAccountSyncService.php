@@ -10,6 +10,19 @@ class ViewerAccountSyncService
 {
     public function sync(Pegawai $pegawai, bool $resetPassword = false): ?User
     {
+        $viewer = User::query()->where('pegawai_id', $pegawai->id)->first();
+
+        if (! $pegawai->isAktif()) {
+            if ($viewer) {
+                $viewer->update([
+                    'name' => $pegawai->nama,
+                    'unit_kerja_id' => $pegawai->unit_kerja_id,
+                ]);
+            }
+
+            return $viewer;
+        }
+
         $nip = trim((string) ($pegawai->nip ?? ''));
         $tanggalLahir = $pegawai->tanggal_lahir;
 
@@ -24,17 +37,10 @@ class ViewerAccountSyncService
 
         $passwordPlain = date('dmY', $timestamp);
         $sanitizedNip = preg_replace('/[^0-9A-Za-z]/', '', $nip);
+        if ($sanitizedNip === '') {
+            $sanitizedNip = 'pegawai' . $pegawai->id;
+        }
         $baseEmail = 'viewer.' . $sanitizedNip . '@local.test';
-
-        $viewer = User::query()
-            ->where('pegawai_id', $pegawai->id)
-            ->orWhere('email', $baseEmail)
-            ->orWhere(function ($query) use ($sanitizedNip) {
-                $query->where('role', 'viewer')
-                    ->where('email', 'like', 'viewer.' . $sanitizedNip . '.%@local.test');
-            })
-            ->orderByRaw('CASE WHEN pegawai_id = ? THEN 0 WHEN email = ? THEN 1 ELSE 2 END', [$pegawai->id, $baseEmail])
-            ->first();
 
         if (!$viewer) {
             $viewer = new User();
@@ -72,10 +78,6 @@ class ViewerAccountSyncService
 
         $owner = $query->first();
         if (!$owner) {
-            return $baseEmail;
-        }
-
-        if (($owner->role ?? null) === 'viewer') {
             return $baseEmail;
         }
 

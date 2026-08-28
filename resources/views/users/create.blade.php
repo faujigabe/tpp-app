@@ -95,7 +95,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Password</label>
-                            <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" placeholder="Minimal 6 karakter" required>
+                            <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" placeholder="Minimal 8 karakter" required>
                             @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
 

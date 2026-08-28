@@ -76,6 +76,9 @@ class UserController extends Controller
 
         if ($pegawaiId) {
             $pegawai = Pegawai::findOrFail($pegawaiId);
+            if (! $pegawai->isAktif()) {
+                return back()->withInput()->withErrors(['pegawai_id' => 'Akun viewer hanya dapat dihubungkan dengan pegawai aktif.']);
+            }
             if ((int) $pegawai->unit_kerja_id !== $unitKerjaId) {
                 return back()->withInput()->withErrors(['pegawai_id' => 'Pegawai harus berasal dari unit kerja yang sama.']);
             }
@@ -120,6 +123,9 @@ class UserController extends Controller
 
         if ($pegawaiId) {
             $pegawai = Pegawai::findOrFail($pegawaiId);
+            if (! $pegawai->isAktif()) {
+                return back()->withInput()->withErrors(['pegawai_id' => 'Akun viewer hanya dapat dihubungkan dengan pegawai aktif.']);
+            }
             if ((int) $pegawai->unit_kerja_id !== $unitKerjaId) {
                 return back()->withInput()->withErrors(['pegawai_id' => 'Pegawai harus berasal dari unit kerja yang sama.']);
             }
@@ -161,7 +167,7 @@ class UserController extends Controller
         return $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user?->id)],
-            'password' => [$user ? 'nullable' : 'required', 'string', 'min:6', 'confirmed'],
+            'password' => [$user ? 'nullable' : 'required', 'string', 'min:8', 'confirmed'],
             'role' => 'required|in:super_admin,admin,operator,viewer',
             'unit_kerja_id' => 'nullable|exists:unit_kerjas,id',
             'pegawai_id' => [
@@ -185,6 +191,7 @@ class UserController extends Controller
 
         return Pegawai::query()
             ->when($unitKerjaId, fn ($query) => $query->where('unit_kerja_id', $unitKerjaId))
+            ->where('status_pegawai', Pegawai::STATUS_AKTIF)
             ->when($linkedPegawaiIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $linkedPegawaiIds))
             ->orderBy('nama')
             ->get();
