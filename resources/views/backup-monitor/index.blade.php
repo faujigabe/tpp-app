@@ -92,7 +92,7 @@
             <tbody>
                 @forelse($runs as $run)
                     <tr>
-                        <td>{{ $run->started_at?->format('d/m/Y H:i:s') }}</td>
+                        <td>{{ $run->started_at?->timezone('Asia/Jakarta')->format('d/m/Y H:i:s') }} WIB</td>
                         <td>{{ $run->type === 'weekly' ? 'Mingguan' : 'Harian' }}</td>
                         <td>
                             <span class="badge {{ $run->status === 'success' ? 'text-bg-success' : ($run->status === 'failed' ? 'text-bg-danger' : 'text-bg-warning') }}">

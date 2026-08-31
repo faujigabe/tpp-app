@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\BackupRun;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -57,8 +58,8 @@ class BackupMonitorTest extends TestCase
             'file_path' => 'storage/app/backups/daily/tpp_20260831_010000.sql.gz',
             'size_bytes' => 12,
             'checksum' => str_repeat('a', 64),
-            'started_at' => now(),
-            'finished_at' => now(),
+            'started_at' => Carbon::create(2026, 8, 31, 5, 17, 10, 'UTC'),
+            'finished_at' => Carbon::create(2026, 8, 31, 5, 17, 10, 'UTC'),
         ]);
 
         $superAdmin = User::factory()->create(['role' => 'super_admin']);
@@ -67,6 +68,7 @@ class BackupMonitorTest extends TestCase
             ->assertOk()
             ->assertSee('Backup Sehat')
             ->assertSee('tpp_20260831_010000.sql.gz')
+            ->assertSee('31/08/2026 12:17:10 WIB')
             ->assertSee('Berhasil');
     }
 
