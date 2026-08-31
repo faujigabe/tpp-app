@@ -162,7 +162,7 @@
                                     </a>
 
                                     @if(auth()->id() != $user->id)
-                                        <form method="POST" action="{{ route('users.destroy', $user->id) }}" onsubmit="return confirm('Hapus user {{ $user->name }}?')">
+                                        <form method="POST" action="{{ route('users.destroy', $user->id) }}" data-confirm data-confirm-title="Hapus akun pengguna?" data-confirm-message="Akun {{ $user->name }} ({{ $user->email }}) akan dihapus dan tidak dapat digunakan untuk masuk kembali." data-confirm-label="Hapus Akun" data-confirm-variant="danger">
                                             @csrf
                                             @method('DELETE')
                                             <button class="btn btn-sm btn-outline-danger btn-icon">

@@ -321,12 +321,6 @@
   </div>
 </div>
 
-@if (session('error'))
-  <div class="alert alert-danger shadow-soft">
-    <i class="bi bi-exclamation-octagon me-1"></i>{{ session('error') }}
-  </div>
-@endif
-
 @if($selectedStatus !== \App\Models\TppApproval::STATUS_DRAFT)
   <div class="alert {{ $statusAlertClass }} shadow-soft">
     @if($selectedStatus === \App\Models\TppApproval::STATUS_SUBMITTED)
@@ -406,7 +400,12 @@
 </div>
 @endif
 
-<form method="POST" action="{{ route('tpp.store') }}" class="card shadow-soft" id="tppMassalForm">
+<form method="POST" action="{{ route('tpp.store') }}" class="card shadow-soft" id="tppMassalForm"
+      data-confirm
+      data-confirm-title="Simpan perhitungan TPP massal?"
+      data-confirm-message="Seluruh nilai pegawai periode {{ $bulanNama[$bulanNow] ?? $bulanNow }} {{ $tahunNow }} akan dihitung dan disimpan. Pastikan setiap kelompok kolom sudah diperiksa."
+      data-confirm-label="Hitung & Simpan"
+      data-confirm-variant="primary">
   @csrf
   @if($isSuperAdmin && $selectedUnitKerjaId)
     <input type="hidden" name="unit_kerja_id" value="{{ $selectedUnitKerjaId }}">
@@ -630,7 +629,7 @@
 
     <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
       <div class="text-muted small">Total pegawai yang siap diinput: <strong>{{ $pegawais->count() }}</strong></div>
-      <button class="btn btn-primary btn-icon" {{ ($pegawais->isEmpty() || ($selectedStatus !== \App\Models\TppApproval::STATUS_DRAFT)) ? 'disabled' : '' }} title="{{ ($selectedStatus !== \App\Models\TppApproval::STATUS_DRAFT) ? 'Periode terpilih sedang menunggu validasi atau sudah divalidasi.' : '' }}" onclick="return confirm('Simpan perhitungan TPP massal untuk periode {{ $bulanNama[$bulanNow] ?? $bulanNow }} {{ $tahunNow }}? Pastikan seluruh nilai sudah benar.');">
+      <button class="btn btn-primary btn-icon" {{ ($pegawais->isEmpty() || ($selectedStatus !== \App\Models\TppApproval::STATUS_DRAFT)) ? 'disabled' : '' }} title="{{ ($selectedStatus !== \App\Models\TppApproval::STATUS_DRAFT) ? 'Periode terpilih sedang menunggu validasi atau sudah divalidasi.' : '' }}">
         <i class="bi bi-save2"></i> Hitung & Simpan (Semua Pegawai)
       </button>
     </div>
@@ -771,7 +770,14 @@
     });
   });
 
-  document.getElementById('tppMassalForm')?.addEventListener('submit', event => {
+  const tppMassalForm = document.getElementById('tppMassalForm');
+
+  tppMassalForm?.addEventListener('invalid', event => {
+    const group = event.target.closest('[data-column-group]')?.dataset.columnGroup;
+    if (group) setActiveTppGroup(group);
+  }, true);
+
+  tppMassalForm?.addEventListener('submit', event => {
     const invalidInput = event.currentTarget.querySelector(':invalid');
     if (!invalidInput) return;
 

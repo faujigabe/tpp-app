@@ -27,13 +27,6 @@
     </div>
 </div>
 
-@if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
-
 <div class="row g-3 mb-4">
     <div class="col-md-4 col-xl-2">
         <div class="card shadow-sm border-0 h-100">
@@ -136,7 +129,7 @@
                                     <a href="{{ route('kelas-jabatan.edit', $item->id) }}" class="btn btn-sm btn-warning">
                                         <i class="bi bi-pencil-square me-1"></i>Edit
                                     </a>
-                                    <form action="{{ route('kelas-jabatan.destroy', $item->id) }}" method="POST" onsubmit="return confirm('Hapus kelas jabatan ini?')">
+                                    <form action="{{ route('kelas-jabatan.destroy', $item->id) }}" method="POST" data-confirm data-confirm-title="Hapus kelas jabatan?" data-confirm-message="Kelas {{ $item->nomor_kelas }} — {{ $item->nama_kelas }} akan dihapus. Sistem akan menolak jika kelas masih digunakan pegawai." data-confirm-label="Hapus Kelas" data-confirm-variant="danger">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger">

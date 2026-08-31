@@ -27,7 +27,7 @@
     <td class="text-center">
         <div class="d-flex justify-content-center gap-2">
             <a href="{{ route('unit-kerja.edit', $unit) }}" class="btn btn-sm btn-warning">Edit</a>
-            <form method="POST" action="{{ route('unit-kerja.destroy', $unit) }}" onsubmit="return confirm('Hapus unit kerja ini?')">
+            <form method="POST" action="{{ route('unit-kerja.destroy', $unit) }}" data-confirm data-confirm-title="Hapus unit kerja?" data-confirm-message="Unit {{ $unit->nama_unit }} akan dihapus. Sistem akan menolak jika masih memiliki pengguna, pegawai, atau riwayat terkait." data-confirm-label="Hapus Unit" data-confirm-variant="danger">
                 @csrf @method('DELETE')
                 <button class="btn btn-sm btn-outline-danger">Hapus</button>
             </form>

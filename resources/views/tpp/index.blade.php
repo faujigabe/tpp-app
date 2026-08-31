@@ -39,12 +39,6 @@
     @endif
 </div>
 
-@if (session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
-@if (session('error'))
-    <div class="alert alert-danger">{{ session('error') }}</div>
-@endif
 @if($viewerMode && $viewerNeedsPegawaiMapping)
     <div class="alert alert-warning">Akun viewer ini belum dihubungkan ke data pegawai. Hubungkan akun ke pegawai melalui menu Manajemen User agar riwayat TPP pribadi dapat tampil.</div>
 @endif
@@ -190,7 +184,7 @@
 
         <div class="d-flex gap-2 flex-wrap justify-content-lg-end align-items-center">
             @if(!$viewerMode && $isUnitEditor && $jumlahDataFilter > 0 && $periodStatus === \App\Models\TppApproval::STATUS_DRAFT)
-                <form action="{{ route('tpp.submit-period') }}" method="POST" onsubmit="return confirm('Kirim TPP periode ini untuk validasi admin? Setelah dikirim, data tidak bisa diedit sampai super admin membuka kunci validasi.')">
+                <form action="{{ route('tpp.submit-period') }}" method="POST" data-confirm data-confirm-title="Kirim TPP untuk validasi?" data-confirm-message="Periode {{ $periodeLabel }} akan dikirim. Data tidak dapat diedit sampai super admin membuka kembali periode." data-confirm-label="Kirim TPP" data-confirm-variant="primary">
                     @csrf
                     <input type="hidden" name="bulan" value="{{ $bulan }}">
                     <input type="hidden" name="tahun" value="{{ $tahun }}">
@@ -200,7 +194,7 @@
                 </form>
             @endif
             @if(!$viewerMode && $isSuperAdmin && $selectedUnitKerjaId && $jumlahDataFilter > 0 && $periodStatus === \App\Models\TppApproval::STATUS_SUBMITTED)
-                <form action="{{ route('tpp.lock-period') }}" method="POST" onsubmit="return confirm('Validasi dan kunci TPP periode unit ini? Setelah tervalidasi, admin/operator tidak bisa mengubah data sampai super admin membuka kunci validasi.')">
+                <form action="{{ route('tpp.lock-period') }}" method="POST" data-confirm data-confirm-title="Validasi dan kunci periode?" data-confirm-message="TPP {{ $periodeLabel }} untuk {{ $activeUnitKerjaName ?: 'unit kerja terpilih' }} akan dikunci. Admin dan operator tidak dapat mengubah data sampai kunci dibuka." data-confirm-label="Validasi & Kunci" data-confirm-variant="success">
                     @csrf
                     <input type="hidden" name="unit_kerja_id" value="{{ $selectedUnitKerjaId }}">
                     <input type="hidden" name="bulan" value="{{ $bulan }}">
@@ -211,7 +205,7 @@
                 </form>
             @endif
             @if(!$viewerMode && $isSuperAdmin && $selectedUnitKerjaId && in_array($periodStatus, [\App\Models\TppApproval::STATUS_SUBMITTED, \App\Models\TppApproval::STATUS_LOCKED], true))
-                <form action="{{ route('tpp.unlock-period') }}" method="POST" onsubmit="return confirm('Buka kunci validasi periode ini? Status akan kembali ke draft agar admin/operator bisa mengedit ulang.')">
+                <form action="{{ route('tpp.unlock-period') }}" method="POST" data-confirm data-confirm-title="Buka kembali periode?" data-confirm-message="Status TPP {{ $periodeLabel }} akan kembali menjadi draft sehingga admin dan operator dapat mengubah data kembali." data-confirm-label="Buka Kunci" data-confirm-variant="warning">
                     @csrf
                     <input type="hidden" name="unit_kerja_id" value="{{ $selectedUnitKerjaId }}">
                     <input type="hidden" name="bulan" value="{{ $bulan }}">
@@ -350,7 +344,7 @@
                                     <a href="{{ route('tpp.edit', $tpp->id) }}" class="btn btn-sm btn-warning btn-icon" title="Edit">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
-                                    <form action="{{ route('tpp.destroy', $tpp->id) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus data TPP ini?')">
+                                    <form action="{{ route('tpp.destroy', $tpp->id) }}" method="POST" data-confirm data-confirm-title="Hapus data TPP?" data-confirm-message="Data TPP {{ $tpp->pegawai->nama ?? 'pegawai ini' }} untuk periode {{ $bulanNama[(int) $tpp->bulan] ?? $tpp->bulan }} {{ $tpp->tahun }} akan dihapus dan tidak lagi muncul dalam rekap." data-confirm-label="Hapus TPP" data-confirm-variant="danger">
                                         @csrf
                                         @method('DELETE')
                                         <button class="btn btn-sm btn-outline-danger btn-icon" title="Hapus"><i class="bi bi-trash"></i></button>

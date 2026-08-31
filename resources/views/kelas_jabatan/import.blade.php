@@ -8,17 +8,14 @@
 <p class="text-muted">File yang diimport hanya berlaku untuk unit kerja <strong>{{ $activeUnitName }}</strong>.</p>
 
 @if ($errors->any())
-    <div style="color: red;">
-        <ul>
+    <div class="alert alert-danger border-0 shadow-sm" role="alert">
+        <div class="fw-semibold mb-2"><i class="bi bi-exclamation-triangle me-1"></i>File belum dapat diproses.</div>
+        <ul class="mb-0 ps-3">
             @foreach ($errors->all() as $error)
                 <li>{{ $error }}</li>
             @endforeach
         </ul>
     </div>
-@endif
-
-@if (session('error'))
-    <div style="color: red; margin-bottom: 16px;">{{ session('error') }}</div>
 @endif
 
 <p>

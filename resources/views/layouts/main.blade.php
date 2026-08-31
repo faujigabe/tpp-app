@@ -981,6 +981,46 @@
                 padding-top: .95rem;
             }
         }
+
+        .app-confirm-modal .modal-content {
+            border: 0;
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 28px 70px rgba(15, 23, 42, .24);
+        }
+
+        .app-confirm-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            font-size: 1.4rem;
+            background: #eef6ff;
+            color: #1f7ae0;
+        }
+
+        .app-confirm-modal[data-variant="danger"] .app-confirm-icon {
+            background: #fff1f2;
+            color: #dc3545;
+        }
+
+        .app-confirm-modal[data-variant="warning"] .app-confirm-icon {
+            background: #fff8e6;
+            color: #b7791f;
+        }
+
+        .app-confirm-modal[data-variant="success"] .app-confirm-icon {
+            background: #ecfdf3;
+            color: #198754;
+        }
+
+        .app-flash-alert {
+            border: 0;
+            border-radius: 14px;
+        }
     </style>
     @stack('styles')
 </head>
@@ -1011,14 +1051,16 @@
 
         <div class="container-fluid px-4 px-lg-5 app-content">
             @if(session('success'))
-                <div class="alert alert-success shadow-sm" role="alert">
+                <div class="alert alert-success alert-dismissible fade show shadow-sm app-flash-alert" role="status" data-auto-dismiss="6000">
                     <i class="bi bi-check-circle me-2"></i>{{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
                 </div>
             @endif
 
             @if(session('error'))
-                <div class="alert alert-danger shadow-sm" role="alert">
+                <div class="alert alert-danger alert-dismissible fade show shadow-sm app-flash-alert" role="alert">
                     <i class="bi bi-exclamation-triangle me-2"></i>{{ session('error') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
                 </div>
             @endif
 
@@ -1027,6 +1069,26 @@
             </section>
         </div>
     </main>
+</div>
+
+<div class="modal fade app-confirm-modal" id="appConfirmModal" tabindex="-1" aria-labelledby="appConfirmModalLabel" aria-describedby="appConfirmModalMessage" aria-hidden="true" data-variant="primary">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body p-4 p-lg-5">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="app-confirm-icon" aria-hidden="true"><i class="bi bi-question-lg" id="appConfirmModalIcon"></i></div>
+                    <div class="flex-grow-1">
+                        <h5 class="modal-title fw-bold mb-2" id="appConfirmModalLabel">Konfirmasi tindakan</h5>
+                        <p class="text-muted mb-0" id="appConfirmModalMessage">Pastikan tindakan ini sudah benar.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 px-4 px-lg-5 pb-4 pt-0">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" id="appConfirmModalSubmit">Lanjutkan</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 
@@ -1069,6 +1131,70 @@
         const imageModalLabel = document.getElementById('sidebarImageModalLabel');
         const imageTriggers = document.querySelectorAll('[data-sidebar-image-preview]');
         const imageModalInstance = imageModalElement && window.bootstrap ? new bootstrap.Modal(imageModalElement) : null;
+        const confirmModalElement = document.getElementById('appConfirmModal');
+        const confirmModalInstance = confirmModalElement && window.bootstrap ? new bootstrap.Modal(confirmModalElement) : null;
+        const confirmModalLabel = document.getElementById('appConfirmModalLabel');
+        const confirmModalMessage = document.getElementById('appConfirmModalMessage');
+        const confirmModalSubmit = document.getElementById('appConfirmModalSubmit');
+        const confirmModalIcon = document.getElementById('appConfirmModalIcon');
+        let pendingConfirmForm = null;
+        let pendingConfirmSubmitter = null;
+
+        const confirmVariants = {
+            primary: { button: 'btn-primary', icon: 'bi-question-lg' },
+            success: { button: 'btn-success', icon: 'bi-check2-circle' },
+            warning: { button: 'btn-warning', icon: 'bi-exclamation-triangle' },
+            danger: { button: 'btn-danger', icon: 'bi-trash3' },
+        };
+
+        document.addEventListener('submit', function (event) {
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-confirm')) return;
+            if (form.dataset.confirmBypass === 'true') {
+                delete form.dataset.confirmBypass;
+                return;
+            }
+
+            event.preventDefault();
+            pendingConfirmForm = form;
+            pendingConfirmSubmitter = event.submitter || null;
+            const variant = Object.prototype.hasOwnProperty.call(confirmVariants, form.dataset.confirmVariant)
+                ? form.dataset.confirmVariant
+                : 'primary';
+            const variantConfig = confirmVariants[variant];
+
+            confirmModalElement.dataset.variant = variant;
+            confirmModalLabel.textContent = form.dataset.confirmTitle || 'Konfirmasi tindakan';
+            confirmModalMessage.textContent = form.dataset.confirmMessage || 'Pastikan tindakan ini sudah benar.';
+            confirmModalSubmit.textContent = form.dataset.confirmLabel || 'Lanjutkan';
+            confirmModalSubmit.className = `btn ${variantConfig.button}`;
+            confirmModalIcon.className = `bi ${variantConfig.icon}`;
+            confirmModalInstance?.show();
+        });
+
+        confirmModalSubmit?.addEventListener('click', function () {
+            if (!pendingConfirmForm) return;
+            const form = pendingConfirmForm;
+            const submitter = pendingConfirmSubmitter;
+            pendingConfirmForm = null;
+            pendingConfirmSubmitter = null;
+            form.dataset.confirmBypass = 'true';
+            confirmModalInstance?.hide();
+            form.requestSubmit(submitter || undefined);
+        });
+
+        confirmModalElement?.addEventListener('hidden.bs.modal', function () {
+            pendingConfirmForm = null;
+            pendingConfirmSubmitter = null;
+        });
+
+        document.querySelectorAll('[data-auto-dismiss]').forEach(function (alertElement) {
+            const delay = Number.parseInt(alertElement.dataset.autoDismiss || '0', 10);
+            if (!window.bootstrap || !Number.isFinite(delay) || delay < 1) return;
+            window.setTimeout(function () {
+                bootstrap.Alert.getOrCreateInstance(alertElement).close();
+            }, delay);
+        });
 
         const syncSidebarState = () => {
             const isCollapsed = body.classList.contains('sidebar-collapsed');
