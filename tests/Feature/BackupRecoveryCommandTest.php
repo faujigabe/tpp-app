@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\BackupRun;
 use App\Support\MySqlBackupProcess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Mockery;
+use RuntimeException;
 use Tests\TestCase;
 
 class BackupRecoveryCommandTest extends TestCase
@@ -48,6 +50,27 @@ class BackupRecoveryCommandTest extends TestCase
         $this->assertCount(1, $weekly);
         $this->assertFileExists($daily[0] . '.sha256');
         $this->assertSame(hash_file('sha256', $daily[0]), strtok(trim(file_get_contents($daily[0] . '.sha256')), " \t"));
+        $run = BackupRun::query()->sole();
+        $this->assertSame('weekly', $run->type);
+        $this->assertSame('success', $run->status);
+        $this->assertSame(filesize($daily[0]), $run->size_bytes);
+        $this->assertSame(hash_file('sha256', $daily[0]), $run->checksum);
+        $this->assertNotNull($run->finished_at);
+    }
+
+    public function test_backup_gagal_tercatat_untuk_super_admin(): void
+    {
+        $process = Mockery::mock(MySqlBackupProcess::class);
+        $process->shouldReceive('backup')->once()->andThrow(new RuntimeException('mysqldump pengujian gagal'));
+        $this->app->instance(MySqlBackupProcess::class, $process);
+
+        $this->artisan('database:backup')->assertFailed();
+
+        $run = BackupRun::query()->sole();
+        $this->assertSame('daily', $run->type);
+        $this->assertSame('failed', $run->status);
+        $this->assertStringContainsString('mysqldump pengujian gagal', $run->error_message);
+        $this->assertNotNull($run->finished_at);
     }
 
     public function test_restore_ditolak_tanpa_konfirmasi_eksplisit(): void

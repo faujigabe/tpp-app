@@ -405,6 +405,16 @@
 </div>
 @else
 
+@if(auth()->user()->isSuperAdmin() && isset($backupHealthSummary) && !$backupHealthSummary['healthy'])
+    <div class="alert alert-danger border-0 shadow-sm d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4" role="alert">
+        <div>
+            <div class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Backup database memerlukan perhatian</div>
+            <div class="small mt-1">Backup harian atau mingguan tidak ditemukan, tidak memiliki checksum, atau melewati batas usia yang ditetapkan.</div>
+        </div>
+        <a href="{{ route('backup-monitor.index') }}" class="btn btn-danger">Periksa Backup</a>
+    </div>
+@endif
+
 <div class="dashboard-hero app-card overflow-hidden mb-4">
     <div class="p-4 p-lg-5">
         <div class="row g-4 align-items-center">

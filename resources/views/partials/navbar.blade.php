@@ -14,6 +14,7 @@
     $isUsers = request()->routeIs('users.*');
     $isUnitKerja = request()->routeIs('unit-kerja.*');
     $isAuditLogs = request()->routeIs('audit-logs.*');
+    $isBackupMonitor = request()->routeIs('backup-monitor.*');
     $isProfile = request()->routeIs('profile.*');
 
     $isRekapTpp = request()->routeIs('tpp.rekap') || request()->routeIs('tpp.rekap.export');
@@ -144,6 +145,11 @@
             <li class="nav-section-label">Akun & Sistem</li>
 
             @if($userRole === 'super_admin')
+                <li>
+                    <a href="{{ route('backup-monitor.index') }}" class="{{ $isBackupMonitor ? 'active' : '' }}" title="Monitoring Backup">
+                        <i class="bi bi-database-check navicon"></i><span>Monitoring Backup</span>
+                    </a>
+                </li>
                 <li>
                     <a href="{{ route('audit-logs.index') }}" class="{{ $isAuditLogs ? 'active' : '' }}" title="Jejak Perubahan">
                         <i class="bi bi-clock-history navicon"></i><span>Jejak Perubahan</span>
