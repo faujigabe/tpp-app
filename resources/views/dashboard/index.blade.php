@@ -14,6 +14,29 @@
         ? route('profile.photo') . '?v=' . urlencode((string) $viewerFotoProfilStamp)
         : null;
     $activeUnitKerjaName = $activeUnitKerja?->nama_unit ?? 'Semua Unit Kerja';
+    $dashboardRole = auth()->user()?->role;
+    $dashboardRoleContent = match ($dashboardRole) {
+        'super_admin' => [
+            'label' => 'Mode Super Admin',
+            'title' => 'Pusat Pengawasan TPP Pemerintah Daerah',
+            'description' => 'Pantau progres seluruh unit kerja, tindak lanjuti periode yang diajukan, serta awasi jejak perubahan dan kesehatan backup.',
+        ],
+        'admin' => [
+            'label' => 'Mode Admin Unit',
+            'title' => 'Pengelolaan TPP Unit Kerja',
+            'description' => 'Kelola pegawai, periksa kelengkapan perhitungan, kirim periode untuk validasi, dan siapkan laporan unit kerja.',
+        ],
+        'operator' => [
+            'label' => 'Mode Operator',
+            'title' => 'Penyelesaian Input TPP Periode Berjalan',
+            'description' => 'Fokus pada pegawai yang belum dihitung, lengkapi nilai tiap komponen, dan pastikan data siap dikirim untuk validasi.',
+        ],
+        default => [
+            'label' => 'Dashboard TPP',
+            'title' => 'Ringkasan Pengelolaan TPP',
+            'description' => 'Pantau progres dan ringkasan data TPP sesuai kewenangan akun Anda.',
+        ],
+    };
 @endphp
 
 @if($viewerMode)
@@ -420,14 +443,25 @@
         <div class="row g-4 align-items-center">
             <div class="col-xl-7">
                 <span class="hero-chip mb-3 d-inline-flex align-items-center gap-2">
-                    <i class="bi bi-calendar-event"></i>
-                    Periode {{ $bulanList[$bulan] ?? $bulan }} {{ $tahun }}
+                    <i class="bi bi-person-badge"></i>
+                    {{ $dashboardRoleContent['label'] }} · {{ $bulanList[$bulan] ?? $bulan }} {{ $tahun }}
                 </span>
-                <h2 class="text-white mb-3">Dashboard E-TPP yang lebih ringkas, modern, dan mudah dipantau.</h2>
-                <p class="hero-text mb-4">Seluruh ringkasan pegawai, progres perhitungan, nominal TPP diterima, dan distribusi akun dirangkum dalam satu tampilan agar proses monitoring lebih cepat dan nyaman.</p>
+                <h2 class="text-white mb-3">{{ $dashboardRoleContent['title'] }}</h2>
+                <p class="hero-text mb-4">{{ $dashboardRoleContent['description'] }}</p>
                 <div class="d-flex flex-wrap gap-2">
-                    <a class="btn btn-light btn-hero" href="{{ route('tpp.index') }}"><i class="bi bi-wallet2 me-2"></i>Kelola TPP</a>
-                    <a class="btn btn-outline-light btn-hero-outline" href="{{ route('pegawai.index') }}"><i class="bi bi-people me-2"></i>Data Pegawai</a>
+                    @if($dashboardRole === 'super_admin')
+                        <a class="btn btn-light btn-hero" href="{{ route('tpp.index') }}"><i class="bi bi-clipboard2-check me-2"></i>Tinjau TPP</a>
+                        <a class="btn btn-outline-light btn-hero-outline" href="{{ route('audit-logs.index') }}"><i class="bi bi-clock-history me-2"></i>Jejak Perubahan</a>
+                        <a class="btn btn-outline-light btn-hero-outline" href="{{ route('backup-monitor.index') }}"><i class="bi bi-database-check me-2"></i>Monitoring Backup</a>
+                    @elseif($dashboardRole === 'admin')
+                        <a class="btn btn-light btn-hero" href="{{ route('tpp.create', ['bulan' => $bulan, 'tahun' => $tahun]) }}"><i class="bi bi-calculator me-2"></i>Input TPP</a>
+                        <a class="btn btn-outline-light btn-hero-outline" href="{{ route('tpp.rekap', ['bulan' => $bulan, 'tahun' => $tahun]) }}"><i class="bi bi-file-earmark-bar-graph me-2"></i>Rekap TPP</a>
+                        <a class="btn btn-outline-light btn-hero-outline" href="{{ route('pegawai.index') }}"><i class="bi bi-people me-2"></i>Data Pegawai</a>
+                    @else
+                        <a class="btn btn-light btn-hero" href="{{ route('tpp.create', ['bulan' => $bulan, 'tahun' => $tahun]) }}"><i class="bi bi-calculator me-2"></i>Input TPP</a>
+                        <a class="btn btn-outline-light btn-hero-outline" href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun]) }}"><i class="bi bi-wallet2 me-2"></i>Daftar TPP</a>
+                        <a class="btn btn-outline-light btn-hero-outline" href="{{ route('pegawai.index') }}"><i class="bi bi-people me-2"></i>Data Pegawai</a>
+                    @endif
                 </div>
             </div>
             <div class="col-xl-5">
@@ -463,8 +497,8 @@
 <div class="app-card p-4 mb-4 filter-panel">
     <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-3">
         <div>
-            <h5 class="mb-1">Filter dashboard</h5>
-            <p class="text-muted mb-0">Secara default dashboard membuka data bulan sebelumnya, lalu Anda tetap bisa mengganti periode secara manual.</p>
+            <h5 class="mb-1">Filter dashboard {{ $dashboardRole === 'super_admin' ? 'lintas unit' : 'unit kerja' }}</h5>
+            <p class="text-muted mb-0">Pilih periode{{ $dashboardRole === 'super_admin' ? ' dan unit kerja' : '' }} yang ingin dipantau. Default menggunakan bulan sebelumnya.</p>
             @unless($viewerMode)
                 <small class="text-muted d-block mt-1">Ruang lingkup data: <span class="fw-semibold">{{ $activeUnitKerjaName }}</span></small>
             @endunless
@@ -619,31 +653,55 @@
     <div class="col-xl-4">
         <div class="app-card panel-card h-100">
             <div class="card-header px-4">
-                <div class="fw-semibold">Distribusi User Aktif</div>
-                <div class="small text-muted">Pembagian akun berdasarkan peran sistem.</div>
+                <div class="fw-semibold">{{ $dashboardRole === 'operator' ? 'Fokus Operator' : 'Distribusi User Aktif' }}</div>
+                <div class="small text-muted">{{ $dashboardRole === 'operator' ? 'Prioritas pekerjaan untuk menyelesaikan periode terpilih.' : 'Pembagian akun berdasarkan peran sistem.' }}</div>
             </div>
             <div class="card-body px-4">
+                @if($dashboardRole === 'operator')
+                <div class="role-item">
+                    <div>
+                        <div class="role-title">Lengkapi perhitungan</div>
+                        <small>Pegawai yang belum dihitung pada periode ini</small>
+                    </div>
+                    <span class="badge {{ $pegawaiBelumDihitung > 0 ? 'text-bg-warning' : 'text-bg-success' }} rounded-pill">{{ $pegawaiBelumDihitung }}</span>
+                </div>
+                <div class="role-item">
+                    <div>
+                        <div class="role-title">Periksa kelas jabatan</div>
+                        <small>Pegawai yang belum memiliki kelas jabatan</small>
+                    </div>
+                    <span class="badge {{ $pegawaiTanpaKelas > 0 ? 'text-bg-danger' : 'text-bg-success' }} rounded-pill">{{ $pegawaiTanpaKelas }}</span>
+                </div>
+                <div class="role-item mb-0 pb-0 border-0">
+                    <div>
+                        <div class="role-title">Data siap dipantau</div>
+                        <small>Buka daftar TPP untuk pemeriksaan akhir</small>
+                    </div>
+                    <a href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun]) }}" class="btn btn-sm btn-outline-primary">Periksa</a>
+                </div>
+                @else
                 <div class="role-item">
                     <div>
                         <div class="role-title">Admin</div>
-                        <small>Mengelola seluruh konfigurasi aplikasi</small>
+                        <small>Mengelola pengguna dan laporan unit</small>
                     </div>
                     <span class="badge text-bg-primary rounded-pill">{{ $userAdmin }}</span>
                 </div>
                 <div class="role-item">
                     <div>
                         <div class="role-title">Operator</div>
-                        <small>Menginput dan memproses data TPP</small>
+                        <small>Menginput dan memproses TPP unit</small>
                     </div>
                     <span class="badge text-bg-success rounded-pill">{{ $userOperator }}</span>
                 </div>
                 <div class="role-item mb-0 pb-0 border-0">
                     <div>
                         <div class="role-title">Viewer</div>
-                        <small>Memantau hasil dan rekapitulasi data</small>
+                        <small>Melihat riwayat TPP pribadi</small>
                     </div>
                     <span class="badge text-bg-secondary rounded-pill">{{ $userViewer }}</span>
                 </div>
+                @endif
             </div>
         </div>
     </div>
