@@ -135,7 +135,7 @@
                 <div class="fw-semibold">Daftar Pegawai</div>
                 <div class="small text-muted">Menampilkan {{ $pegawais->total() }} data{{ $search || $fotoFilter || $npwpFilter || $selectedUnitKerjaId ? ' sesuai filter aktif' : '' }}. @if(auth()->user()->isSuperAdmin()){{ $selectedUnitKerjaId ? 'Filter unit kerja sedang aktif.' : 'Saat ini menampilkan seluruh unit kerja.' }}@else Data pegawai dibatasi untuk unit kerja Anda.@endif</div>
             </div>
-            <button type="submit" form="mass-delete-form" class="btn btn-outline-danger btn-sm btn-icon" id="btn-delete-selected" disabled onclick="return confirm('Hapus semua pegawai yang dipilih?')">
+            <button type="submit" form="mass-delete-form" class="btn btn-outline-danger btn-sm btn-icon" id="btn-delete-selected" disabled>
                 <i class="bi bi-trash3"></i><span>Hapus Massal</span>
             </button>
         </div>
@@ -199,7 +199,7 @@
                                         <a href="{{ route('pegawai.edit', $pegawai->id) }}" class="btn btn-sm btn-warning btn-icon">
                                             <i class="bi bi-pencil-square"></i><span>Edit</span>
                                         </a>
-                                        <form action="{{ route('pegawai.status', $pegawai->id) }}" method="POST" onsubmit="return confirm('{{ ($pegawai->status_pegawai ?? 'aktif') === 'aktif' ? 'Ubah status pegawai ini menjadi mutasi?' : 'Aktifkan kembali pegawai ini?' }}')">
+                                        <form action="{{ route('pegawai.status', $pegawai->id) }}" method="POST" data-confirm data-confirm-title="{{ ($pegawai->status_pegawai ?? 'aktif') === 'aktif' ? 'Nonaktifkan pegawai?' : 'Aktifkan kembali pegawai?' }}" data-confirm-message="Status {{ $pegawai->nama }} akan diubah menjadi {{ ($pegawai->status_pegawai ?? 'aktif') === 'aktif' ? 'mutasi/nonaktif' : 'aktif' }}." data-confirm-label="{{ ($pegawai->status_pegawai ?? 'aktif') === 'aktif' ? 'Nonaktifkan' : 'Aktifkan' }}" data-confirm-variant="{{ ($pegawai->status_pegawai ?? 'aktif') === 'aktif' ? 'warning' : 'success' }}">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="status_pegawai" value="{{ ($pegawai->status_pegawai ?? 'aktif') === 'aktif' ? 'mutasi' : 'aktif' }}">
@@ -207,7 +207,7 @@
                                                 <i class="bi {{ ($pegawai->status_pegawai ?? 'aktif') === 'aktif' ? 'bi-person-dash' : 'bi-person-check' }}"></i><span>{{ ($pegawai->status_pegawai ?? 'aktif') === 'aktif' ? 'Mutasi/Nonaktif' : 'Aktifkan' }}</span>
                                             </button>
                                         </form>
-                                        <form action="{{ route('pegawai.destroy', $pegawai->id) }}" method="POST" onsubmit="return confirm('Hapus pegawai ini?')">
+                                        <form action="{{ route('pegawai.destroy', $pegawai->id) }}" method="POST" data-confirm data-confirm-title="Hapus pegawai?" data-confirm-message="Data {{ $pegawai->nama }} akan dihapus. Penghapusan dapat ditolak bila pegawai masih terhubung dengan akun atau riwayat penting." data-confirm-label="Hapus Pegawai" data-confirm-variant="danger">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-sm btn-outline-danger btn-icon">
@@ -234,7 +234,7 @@
         @endif
     </div>
 
-<form action="{{ route('pegawai.destroy.massal') }}" method="POST" id="mass-delete-form" class="d-none">
+<form action="{{ route('pegawai.destroy.massal') }}" method="POST" id="mass-delete-form" class="d-none" data-confirm data-confirm-title="Hapus pegawai terpilih?" data-confirm-message="Seluruh pegawai yang dicentang akan diproses untuk dihapus. Data yang masih memiliki keterkaitan dapat ditolak oleh sistem." data-confirm-label="Hapus Terpilih" data-confirm-variant="danger">
     @csrf
     @method('DELETE')
 </form>

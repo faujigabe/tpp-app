@@ -24,12 +24,6 @@
     </div>
 @endif
 
-@if (session('error'))
-    <div class="alert alert-danger shadow-soft border-0">
-        <i class="bi bi-exclamation-octagon me-1"></i>{{ session('error') }}
-    </div>
-@endif
-
 <div class="card shadow-soft border-0">
     <div class="card-body p-4 p-lg-5">
         <div class="row g-4 align-items-start">
