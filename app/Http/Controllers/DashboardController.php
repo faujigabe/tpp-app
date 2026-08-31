@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Pegawai;
 use App\Models\Tpp;
+use App\Models\TppApproval;
 use App\Models\User;
 use App\Models\UnitKerja;
 use App\Support\BackupHealth;
@@ -37,6 +38,11 @@ class DashboardController extends Controller
         $backupHealthSummary = $request->user()?->isSuperAdmin()
             ? $backupHealth->summary()
             : null;
+        $periodApproval = null;
+        $periodStatus = TppApproval::STATUS_DRAFT;
+        $approvalSummary = ['draft' => 0, 'submitted' => 0, 'locked' => 0, 'total' => 0];
+        $recentApprovalActivities = collect();
+        $pegawaiSiap = 0;
 
         if ($viewerMode) {
             $baseQuery = Tpp::query()
@@ -114,6 +120,10 @@ class DashboardController extends Controller
             $pegawaiTanpaKelas = (clone $pegawaiAktifPeriodeScope)->whereNull('kelas_jabatan_id')->count();
             $jumlahPerhitungan = (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->count();
             $pegawaiBelumDihitung = max($totalPegawai - $jumlahPerhitungan, 0);
+            $pegawaiSiap = (clone $pegawaiAktifPeriodeScope)
+                ->whereNotNull('kelas_jabatan_id')
+                ->whereHas('tpps', fn ($query) => $query->where('bulan', $bulan)->where('tahun', $tahun))
+                ->count();
             $totalTppKotor = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('tpp_kotor');
             $totalBpjs = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('iuran_wajib');
             $totalPajak = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('pajak');
@@ -126,6 +136,36 @@ class DashboardController extends Controller
             $userOperator = (clone $userScope)->where('role', 'operator')->count();
             $userViewer = (clone $userScope)->where('role', 'viewer')->count();
             $perBulan = (clone $tppScope)->selectRaw('bulan, SUM(total_diterima) as total')->where('tahun', $tahun)->groupBy('bulan')->orderBy('bulan')->get();
+
+            $periodApprovalQuery = TppApproval::query()
+                ->with('unitKerja')
+                ->where('bulan', $bulan)
+                ->where('tahun', $tahun);
+            if ($targetUnitKerjaId) {
+                $periodApprovalQuery->where('unit_kerja_id', $targetUnitKerjaId);
+            }
+            $periodApprovals = $periodApprovalQuery->get();
+
+            if ($targetUnitKerjaId) {
+                $periodApproval = $periodApprovals->firstWhere('unit_kerja_id', $targetUnitKerjaId);
+                $periodStatus = $periodApproval?->normalizedStatus() ?? TppApproval::STATUS_DRAFT;
+                $approvalSummary[$periodStatus] = 1;
+                $approvalSummary['total'] = 1;
+            } else {
+                $approvalSummary['total'] = $availableUnitKerjas->count();
+                $approvalSummary['submitted'] = $periodApprovals->filter->isSubmitted()->count();
+                $approvalSummary['locked'] = $periodApprovals->filter->isLocked()->count();
+                $approvalSummary['draft'] = max($approvalSummary['total'] - $approvalSummary['submitted'] - $approvalSummary['locked'], 0);
+            }
+
+            $recentApprovalQuery = TppApproval::query()
+                ->with(['unitKerja', 'submittedBy', 'lockedBy', 'unlockedBy'])
+                ->latest('updated_at')
+                ->take(5);
+            if ($targetUnitKerjaId) {
+                $recentApprovalQuery->where('unit_kerja_id', $targetUnitKerjaId);
+            }
+            $recentApprovalActivities = $recentApprovalQuery->get();
         }
 
         $namaBulan = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
@@ -137,6 +177,6 @@ class DashboardController extends Controller
             $values[] = $found ? (float) $found->total : 0;
         }
 
-        return view('dashboard.index', compact('bulan', 'tahun', 'viewerMode', 'viewerPegawai', 'viewerNeedsPegawaiMapping', 'totalPegawai', 'pegawaiTanpaKelas', 'pegawaiBelumDihitung', 'jumlahPerhitungan', 'totalTppKotor', 'totalBpjs', 'totalPajak', 'totalZakat', 'totalDiterima', 'rataDiterima', 'top5', 'periodeTerakhir', 'userAdmin', 'userOperator', 'userViewer', 'labels', 'values', 'viewerProfileCompletion', 'viewerProfileFieldsFilled', 'viewerProfileFieldsTotal', 'viewerSelectedTpp', 'viewerLatestTpp', 'viewerRecentPeriods', 'viewerAverageProduktivitas', 'viewerAverageKehadiran', 'viewerAveragePerilaku', 'viewerProfileChecklist', 'availableUnitKerjas', 'selectedUnitKerjaId', 'activeUnitKerja', 'backupHealthSummary'));
+        return view('dashboard.index', compact('bulan', 'tahun', 'viewerMode', 'viewerPegawai', 'viewerNeedsPegawaiMapping', 'totalPegawai', 'pegawaiTanpaKelas', 'pegawaiBelumDihitung', 'pegawaiSiap', 'jumlahPerhitungan', 'totalTppKotor', 'totalBpjs', 'totalPajak', 'totalZakat', 'totalDiterima', 'rataDiterima', 'top5', 'periodeTerakhir', 'userAdmin', 'userOperator', 'userViewer', 'labels', 'values', 'viewerProfileCompletion', 'viewerProfileFieldsFilled', 'viewerProfileFieldsTotal', 'viewerSelectedTpp', 'viewerLatestTpp', 'viewerRecentPeriods', 'viewerAverageProduktivitas', 'viewerAverageKehadiran', 'viewerAveragePerilaku', 'viewerProfileChecklist', 'availableUnitKerjas', 'selectedUnitKerjaId', 'activeUnitKerja', 'backupHealthSummary', 'periodApproval', 'periodStatus', 'approvalSummary', 'recentApprovalActivities'));
     }
 }

@@ -37,6 +37,11 @@
             'description' => 'Pantau progres dan ringkasan data TPP sesuai kewenangan akun Anda.',
         ],
     };
+    $periodStatusLabel = \App\Models\TppApproval::labelFor($periodStatus ?? null);
+    $periodStatusBadge = \App\Models\TppApproval::badgeClassFor($periodStatus ?? null);
+    $readinessRate = $totalPegawai > 0
+        ? max(0, min(100, (int) round(($pegawaiSiap / $totalPegawai) * 100)))
+        : 0;
 @endphp
 
 @if($viewerMode)
@@ -538,6 +543,95 @@
     </form>
 </div>
 
+<div class="row g-4 mb-4 dashboard-operation-grid">
+    <div class="col-xl-4">
+        <div class="app-card operation-card h-100">
+            <div class="operation-icon operation-icon-primary"><i class="bi bi-signpost-split"></i></div>
+            @if($dashboardRole === 'super_admin' && !$selectedUnitKerjaId)
+                <div class="flex-grow-1">
+                    <div class="operation-eyebrow">Status seluruh OPD</div>
+                    <h5 class="mb-2">Alur Periode {{ $bulanList[$bulan] ?? $bulan }} {{ $tahun }}</h5>
+                    <div class="status-summary-list">
+                        <span><i class="status-dot bg-secondary"></i>Draft <strong>{{ $approvalSummary['draft'] }}</strong></span>
+                        <span><i class="status-dot bg-warning"></i>Menunggu <strong>{{ $approvalSummary['submitted'] }}</strong></span>
+                        <span><i class="status-dot bg-success"></i>Tervalidasi <strong>{{ $approvalSummary['locked'] }}</strong></span>
+                    </div>
+                </div>
+            @else
+                <div class="flex-grow-1">
+                    <div class="operation-eyebrow">Status periode unit</div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <h5 class="mb-0">{{ $periodStatusLabel }}</h5>
+                        <span class="badge {{ $periodStatusBadge }} rounded-pill">{{ $bulanList[$bulan] ?? $bulan }} {{ $tahun }}</span>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        @if($periodStatus === \App\Models\TppApproval::STATUS_SUBMITTED)
+                            Data sudah diajukan dan menunggu validasi Super Admin.
+                        @elseif($periodStatus === \App\Models\TppApproval::STATUS_LOCKED)
+                            Periode telah divalidasi dan perubahan data dikunci.
+                        @else
+                            Periode masih dapat dilengkapi oleh pengelola unit.
+                        @endif
+                    </p>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="app-card operation-card h-100">
+            <div class="operation-icon operation-icon-success"><i class="bi bi-clipboard2-data"></i></div>
+            <div class="flex-grow-1">
+                <div class="operation-eyebrow">Kesiapan data</div>
+                <div class="d-flex justify-content-between align-items-end mb-2">
+                    <h5 class="mb-0">{{ $readinessRate }}% siap</h5>
+                    <span class="small text-muted">{{ $jumlahPerhitungan }}/{{ $totalPegawai }} pegawai</span>
+                </div>
+                <div class="progress operation-progress mb-2" role="progressbar" aria-valuenow="{{ $readinessRate }}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar" style="width: {{ $readinessRate }}%"></div>
+                </div>
+                <div class="small text-muted">{{ $pegawaiBelumDihitung }} belum dihitung · {{ $pegawaiTanpaKelas }} tanpa kelas jabatan</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="app-card operation-card h-100">
+            <div class="operation-icon operation-icon-warning"><i class="bi bi-lightning-charge"></i></div>
+            <div class="flex-grow-1">
+                <div class="operation-eyebrow">Tindakan berikutnya</div>
+                @if($dashboardRole === 'super_admin')
+                    @if(!$selectedUnitKerjaId)
+                        <h5 class="mb-2">{{ $approvalSummary['submitted'] }} pengajuan menunggu</h5>
+                        <p class="text-muted small mb-3">Pilih unit atau buka daftar TPP untuk memeriksa periode yang diajukan.</p>
+                        <a href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun]) }}" class="btn btn-sm btn-primary">Tinjau Pengajuan</a>
+                    @elseif($periodStatus === \App\Models\TppApproval::STATUS_SUBMITTED)
+                        <h5 class="mb-2">Validasi pengajuan unit</h5>
+                        <p class="text-muted small mb-3">Periksa perhitungan sebelum mengunci periode.</p>
+                        <a href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun, 'unit_kerja_id' => $selectedUnitKerjaId]) }}" class="btn btn-sm btn-primary">Buka Pemeriksaan</a>
+                    @else
+                        <h5 class="mb-2">Pantau kelengkapan unit</h5>
+                        <p class="text-muted small mb-3">Periode belum menunggu tindakan validasi.</p>
+                        <a href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun, 'unit_kerja_id' => $selectedUnitKerjaId]) }}" class="btn btn-sm btn-outline-primary">Lihat Periode</a>
+                    @endif
+                @elseif($periodStatus === \App\Models\TppApproval::STATUS_DRAFT)
+                    <h5 class="mb-2">{{ $pegawaiBelumDihitung > 0 || $pegawaiTanpaKelas > 0 ? 'Lengkapi data periode' : 'Periksa dan ajukan periode' }}</h5>
+                    <p class="text-muted small mb-3">Pastikan seluruh komponen benar sebelum dikirim untuk validasi.</p>
+                    <a href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun]) }}" class="btn btn-sm btn-primary">Buka TPP Periode</a>
+                @elseif($periodStatus === \App\Models\TppApproval::STATUS_SUBMITTED)
+                    <h5 class="mb-2">Menunggu validasi</h5>
+                    <p class="text-muted small mb-3">Data tidak dapat diedit sampai ditinjau Super Admin.</p>
+                    <a href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun]) }}" class="btn btn-sm btn-outline-primary">Lihat Pengajuan</a>
+                @else
+                    <h5 class="mb-2">Periode telah selesai</h5>
+                    <p class="text-muted small mb-3">Gunakan rekap untuk pelaporan periode tervalidasi.</p>
+                    <a href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun]) }}" class="btn btn-sm btn-outline-success">Lihat Hasil</a>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4 mb-4">
     <div class="col-sm-6 col-xl-3">
         <div class="app-card metric-card metric-card-primary h-100">
@@ -707,6 +801,39 @@
     </div>
 </div>
 
+@if($recentApprovalActivities->isNotEmpty())
+<div class="app-card panel-card mb-4">
+    <div class="card-header px-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+        <div>
+            <div class="fw-semibold">Aktivitas Alur Periode Terbaru</div>
+            <div class="small text-muted">Perubahan status pengajuan yang paling baru sesuai ruang lingkup akun.</div>
+        </div>
+        <a href="{{ route('tpp.index', ['bulan' => $bulan, 'tahun' => $tahun]) }}" class="btn btn-sm btn-light border">Buka Daftar TPP</a>
+    </div>
+    <div class="card-body px-4 py-2">
+        @foreach($recentApprovalActivities as $activity)
+            @php
+                $activityStatus = $activity->normalizedStatus();
+                $activityActor = $activityStatus === \App\Models\TppApproval::STATUS_LOCKED
+                    ? $activity->lockedBy
+                    : ($activityStatus === \App\Models\TppApproval::STATUS_SUBMITTED ? $activity->submittedBy : $activity->unlockedBy);
+            @endphp
+            <div class="activity-row">
+                <span class="activity-marker {{ \App\Models\TppApproval::dotClassFor($activityStatus) }}"></span>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold">{{ $activity->unitKerja?->nama_unit ?? 'Unit tidak tersedia' }}</div>
+                    <div class="small text-muted">{{ \App\Models\TppApproval::labelFor($activityStatus) }} · {{ $bulanList[(int) $activity->bulan] ?? $activity->bulan }} {{ $activity->tahun }}</div>
+                </div>
+                <div class="text-md-end small">
+                    <div class="fw-semibold">{{ $activityActor?->name ?? 'Sistem' }}</div>
+                    <div class="text-muted">{{ optional($activity->updated_at)->timezone('Asia/Jakarta')->format('d-m-Y H:i') }} WIB</div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
 <div class="row g-4">
     <div class="col-12">
         <div class="app-card panel-card h-100">
@@ -838,11 +965,71 @@
     .filter-panel:hover,
     .metric-card:hover,
     .finance-card:hover,
-    .panel-card:hover {
+    .panel-card:hover,
+    .operation-card:hover {
         transform: translateY(-2px);
         border-color: rgba(31, 122, 224, .12);
         box-shadow: 0 20px 48px rgba(15, 23, 42, .10);
     }
+    .operation-card {
+        padding: 1.35rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        border: 1px solid rgba(15, 23, 42, .06);
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+    .operation-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+    }
+    .operation-icon-primary { background: #eaf3ff; color: #165db2; }
+    .operation-icon-success { background: #ecfdf3; color: #15803d; }
+    .operation-icon-warning { background: #fff7ed; color: #c2410c; }
+    .operation-eyebrow {
+        color: #667085;
+        font-size: .76rem;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        margin-bottom: .35rem;
+    }
+    .status-summary-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .55rem .9rem;
+        color: #475467;
+        font-size: .82rem;
+    }
+    .status-summary-list span { display: inline-flex; align-items: center; gap: .35rem; }
+    .status-dot,
+    .activity-marker {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+    .operation-progress { height: 8px; border-radius: 999px; }
+    .operation-progress .progress-bar {
+        border-radius: 999px;
+        background: linear-gradient(90deg, #1f7ae0 0%, #16a34a 100%);
+    }
+    .activity-row {
+        display: flex;
+        align-items: center;
+        gap: .9rem;
+        padding: 1rem 0;
+        border-bottom: 1px solid rgba(15, 23, 42, .07);
+    }
+    .activity-row:last-child { border-bottom: 0; }
     .metric-card,
     .finance-card {
         position: relative;
