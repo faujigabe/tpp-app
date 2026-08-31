@@ -15,8 +15,11 @@
     max-height: 70vh;
   }
   .tpp-massal-table {
-    min-width: 3200px;
+    min-width: 1180px;
     margin-bottom: 0;
+  }
+  .tpp-massal-table[data-active-group="all"] {
+    min-width: 3200px;
   }
   .tpp-massal-table thead th {
     background: #f8fafc;
@@ -142,6 +145,46 @@
   .tpp-row-hidden {
     display: none;
   }
+  .tpp-column-hidden {
+    display: none !important;
+  }
+  .tpp-group-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .55rem;
+    padding: .65rem;
+    border: 1px solid #e4eaf2;
+    border-radius: 16px;
+    background: #f8fafc;
+  }
+  .tpp-group-button {
+    border-radius: 12px;
+    font-weight: 700;
+  }
+  .tpp-group-button[aria-pressed="true"] {
+    color: #fff;
+    background: #1f7ae0;
+    border-color: #1f7ae0;
+    box-shadow: 0 8px 18px rgba(31, 122, 224, .2);
+  }
+  .tpp-group-help {
+    min-height: 48px;
+    padding: .75rem 1rem;
+    border-left: 4px solid #1f7ae0;
+    border-radius: 10px;
+    background: #eef6ff;
+  }
+  .tpp-massal-table .form-control.is-edited {
+    border-color: #f59e0b;
+    background: #fffbeb;
+    box-shadow: 0 0 0 .2rem rgba(245, 158, 11, .08);
+  }
+  .tpp-massal-table .form-control:invalid {
+    border-color: #dc3545;
+  }
+  .pegawai-mobile-meta {
+    display: none;
+  }
   .status-dot {
     width: 10px;
     height: 10px;
@@ -149,6 +192,37 @@
     display: inline-block;
     margin-right: .45rem;
     vertical-align: middle;
+  }
+  @media (max-width: 767.98px) {
+    .tpp-massal-table {
+      min-width: 660px;
+    }
+    .tpp-massal-table .sticky-pegawai {
+      left: 52px;
+      min-width: 245px;
+      width: 245px;
+    }
+    .tpp-massal-table .sticky-no {
+      min-width: 52px;
+      width: 52px;
+    }
+    .identity-extra {
+      display: none !important;
+    }
+    .pegawai-mobile-meta {
+      display: block;
+      margin-top: .35rem;
+      color: #64748b;
+      font-size: .78rem;
+    }
+    .tpp-group-switcher {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: .75rem;
+    }
+    .tpp-group-button {
+      white-space: nowrap;
+    }
   }
 </style>
 @endpush
@@ -332,7 +406,7 @@
 </div>
 @endif
 
-<form method="POST" action="{{ route('tpp.store') }}" class="card shadow-soft">
+<form method="POST" action="{{ route('tpp.store') }}" class="card shadow-soft" id="tppMassalForm">
   @csrf
   @if($isSuperAdmin && $selectedUnitKerjaId)
     <input type="hidden" name="unit_kerja_id" value="{{ $selectedUnitKerjaId }}">
@@ -361,19 +435,19 @@
       </div>
 
       <div class="col-md-{{ $isSuperAdmin ? '4' : '6' }} d-flex align-items-end gap-2 flex-wrap">
-        <button type="button" class="btn btn-outline-primary btn-icon" id="btnSet100">
+        <button type="button" class="btn btn-outline-primary btn-icon" id="btnSet100" data-action-group="kinerja">
           <i class="bi bi-check2-circle"></i> Set 100% (Semua)
         </button>
-        <button type="button" class="btn btn-outline-secondary btn-icon" id="btnSetBpjs0">
+        <button type="button" class="btn btn-outline-secondary btn-icon" id="btnSetBpjs0" data-action-group="potongan">
           <i class="bi bi-clipboard2-minus"></i> Set BPJS 0
         </button>
-        <button type="button" class="btn btn-outline-secondary btn-icon" id="btnSetBpjs4Zero">
+        <button type="button" class="btn btn-outline-secondary btn-icon" id="btnSetBpjs4Zero" data-action-group="potongan">
           <i class="bi bi-building"></i> Set BPJS 4% 0
         </button>
-        <button type="button" class="btn btn-outline-warning btn-icon" id="btnSetPotongan0">
+        <button type="button" class="btn btn-outline-warning btn-icon" id="btnSetPotongan0" data-action-group="potongan">
           <i class="bi bi-percent"></i> Set Potongan 0%
         </button>
-        <button type="button" class="btn btn-outline-secondary btn-icon" id="btnSetSipd0">
+        <button type="button" class="btn btn-outline-secondary btn-icon" id="btnSetSipd0" data-action-group="sipd">
           <i class="bi bi-list-columns"></i> Set Kolom SIPD 0
         </button>
       </div>
@@ -390,6 +464,22 @@
     </div>
 
     @if(!$isSuperAdmin || $selectedUnitKerjaId)
+    <div class="mb-3">
+      <div class="d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3 mb-2">
+        <div>
+          <div class="fw-semibold">Kelompok kolom input</div>
+          <div class="small text-muted">Pilih kelompok yang ingin dikerjakan. Identitas pegawai selalu terlihat.</div>
+        </div>
+        <div class="tpp-group-switcher" role="group" aria-label="Kelompok kolom input TPP">
+          <button type="button" class="btn btn-outline-primary tpp-group-button" data-tpp-group="kinerja" aria-pressed="true"><i class="bi bi-speedometer2 me-1"></i>Kinerja</button>
+          <button type="button" class="btn btn-outline-primary tpp-group-button" data-tpp-group="potongan" aria-pressed="false"><i class="bi bi-percent me-1"></i>Potongan &amp; BPJS</button>
+          <button type="button" class="btn btn-outline-primary tpp-group-button" data-tpp-group="sipd" aria-pressed="false"><i class="bi bi-list-columns-reverse me-1"></i>Komponen SIPD</button>
+          <button type="button" class="btn btn-outline-secondary tpp-group-button" data-tpp-group="all" aria-pressed="false"><i class="bi bi-grid-3x3-gap me-1"></i>Lihat Semua</button>
+        </div>
+      </div>
+      <div class="tpp-group-help small" id="tppGroupHelp" role="status" aria-live="polite"></div>
+    </div>
+
     <div class="tpp-toolbar">
       <div>
         <div class="fw-semibold">Daftar pegawai periode {{ $bulanNama[$bulanNow] ?? $bulanNow }} {{ $tahunNow }}</div>
@@ -404,24 +494,24 @@
       </div>
     </div>
     <div class="tpp-massal-table-wrap">
-      <table class="table table-hover align-middle tpp-massal-table">
+      <table class="table table-hover align-middle tpp-massal-table" data-active-group="kinerja">
         <thead class="table-light">
           <tr>
             <th class="sticky-col sticky-no">No</th>
             <th class="sticky-col sticky-pegawai">Pegawai</th>
-            <th>Gol</th>
-            <th>Jabatan</th>
-            <th>Kelas</th>
-            <th style="width:140px;">Produktivitas (%)</th>
-            <th style="width:140px;">Kehadiran (%)</th>
-            <th style="width:140px;">Perilaku (%)</th>
-            <th style="width:180px;">Tambahan TPP</th>
-            <th style="width:170px;">Potongan TPP (%)</th>
-            <th style="width:220px;">BPJS Kesehatan 1% (Peserta)</th>
-            <th style="width:240px;">BPJS Kesehatan 4% (Pemberi Kerja)</th>
-            <th style="width:180px;">TPP Tempat Bertugas</th>
-            <th style="width:160px;">Tunjangan PPH</th>
-            <th style="width:220px;">
+            <th class="identity-extra">Gol</th>
+            <th class="identity-extra">Jabatan</th>
+            <th class="identity-extra">Kelas</th>
+            <th data-column-group="kinerja" style="width:140px;">Produktivitas (%)</th>
+            <th data-column-group="kinerja" style="width:140px;">Kehadiran (%)</th>
+            <th data-column-group="kinerja" style="width:140px;">Perilaku (%)</th>
+            <th data-column-group="potongan" style="width:180px;">Tambahan TPP</th>
+            <th data-column-group="potongan" style="width:170px;">Potongan TPP (%)</th>
+            <th data-column-group="potongan" style="width:220px;">BPJS Kesehatan 1% (Peserta)</th>
+            <th data-column-group="potongan" style="width:240px;">BPJS Kesehatan 4% (Pemberi Kerja)</th>
+            <th data-column-group="sipd" style="width:180px;">TPP Tempat Bertugas</th>
+            <th data-column-group="sipd" style="width:160px;">Tunjangan PPH</th>
+            <th data-column-group="sipd" style="width:220px;">
               <div class="d-flex flex-column align-items-center gap-1">
                 <span>Potongan PPH 21</span>
                 <div class="d-flex flex-wrap justify-content-center gap-1">
@@ -430,12 +520,12 @@
                 </div>
               </div>
             </th>
-            <th style="width:170px;">Iuran JKK</th>
-            <th style="width:170px;">Iuran JKM</th>
-            <th style="width:170px;">Iuran Tapera</th>
-            <th style="width:170px;">Iuran Pensiun</th>
-            <th style="width:180px;">Tunjangan JHT</th>
-            <th style="width:150px;">Bulog</th>
+            <th data-column-group="sipd" style="width:170px;">Iuran JKK</th>
+            <th data-column-group="sipd" style="width:170px;">Iuran JKM</th>
+            <th data-column-group="sipd" style="width:170px;">Iuran Tapera</th>
+            <th data-column-group="sipd" style="width:170px;">Iuran Pensiun</th>
+            <th data-column-group="sipd" style="width:180px;">Tunjangan JHT</th>
+            <th data-column-group="sipd" style="width:150px;">Bulog</th>
                       </tr>
         </thead>
         <tbody>
@@ -449,6 +539,7 @@
               <td class="sticky-col sticky-pegawai pegawai-cell">
                 <div class="nama">{{ $p->nama }}</div>
                 <div class="nip">NIP: {{ $p->nip }}</div>
+                <div class="pegawai-mobile-meta">Gol. {{ $p->golongan }} · Kelas {{ optional($p->kelasJabatan)->nomor_kelas ?? '-' }}<br>{{ $p->jabatan }}</div>
                 @if(isset($currentPeriodInputs[$pid]))
                   <div class="mt-2"><span class="badge text-bg-success">Sudah ada input periode ini</span></div>
                 @endif
@@ -456,11 +547,11 @@
                   <div class="mt-2"><span class="badge text-bg-info">Nilai e-Kinerja terisi</span></div>
                 @endif
               </td>
-              <td><span class="meta-badge">{{ $p->golongan }}</span></td>
-              <td>{{ $p->jabatan }}</td>
-              <td><span class="meta-badge">{{ optional($p->kelasJabatan)->nomor_kelas ?? '-' }}</span></td>
+              <td class="identity-extra"><span class="meta-badge">{{ $p->golongan }}</span></td>
+              <td class="identity-extra">{{ $p->jabatan }}</td>
+              <td class="identity-extra"><span class="meta-badge">{{ optional($p->kelasJabatan)->nomor_kelas ?? '-' }}</span></td>
 
-              <td>
+              <td data-column-group="kinerja">
                 <div class="input-stack">
                 <input type="number" class="form-control inp-prod"
                        name="produktivitas[{{ $pid }}]"
@@ -468,7 +559,7 @@
                        min="0" max="100" step="0.01" required>
                 </div>
               </td>
-              <td>
+              <td data-column-group="kinerja">
                 <div class="input-stack">
                 <input type="number" class="form-control inp-keh"
                        name="kehadiran[{{ $pid }}]"
@@ -476,7 +567,7 @@
                        min="0" max="100" step="0.01" required>
                 </div>
               </td>
-              <td>
+              <td data-column-group="kinerja">
                 <div class="input-stack">
                 <input type="number" class="form-control inp-per"
                        name="perilaku[{{ $pid }}]"
@@ -484,7 +575,7 @@
                        min="0" max="100" step="0.01" required>
                 </div>
               </td>
-              <td>
+              <td data-column-group="potongan">
                 <div class="input-stack">
                 <input type="number" class="form-control inp-tambahan"
                        name="tambahan_tpp[{{ $pid }}]"
@@ -492,7 +583,7 @@
                        min="0" step="0.01" required>
                 </div>
               </td>
-              <td>
+              <td data-column-group="potongan">
                 <div class="input-stack">
                 <input type="number" class="form-control inp-potongan"
                        name="potongan_tpp[{{ $pid }}]"
@@ -501,7 +592,7 @@
                 <div class="form-text">Nilai efektif = <span class="fw-semibold text-primary preview-potongan">100.00%</span></div>
                 </div>
               </td>
-              <td>
+              <td data-column-group="potongan">
                 <div class="input-stack">
                 <input type="number" class="form-control inp-bpjs"
                        name="bpjs_kesehatan[{{ $pid }}]"
@@ -509,7 +600,7 @@
                        min="0" step="0.01" required>
                 </div>
               </td>
-              <td>
+              <td data-column-group="potongan">
                 <div class="input-stack">
                 <input type="number" class="form-control inp-bpjs-4"
                        name="bpjs_kesehatan_pemberi_kerja[{{ $pid }}]"
@@ -517,20 +608,20 @@
                        min="0" step="0.01" required>
                 </div>
               </td>
-              <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="tpp_tempat_bertugas[{{ $pid }}]" value="{{ old("tpp_tempat_bertugas.$pid", $defaults['tpp_tempat_bertugas'] ?? 0) }}" min="0" step="0.01" required></div></td>
-              <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="tunjangan_pph[{{ $pid }}]" value="{{ old("tunjangan_pph.$pid", $defaults['tunjangan_pph'] ?? 0) }}" min="0" step="0.01" required></div></td>
-              <td>
+              <td data-column-group="sipd"><div class="input-stack"><input type="number" class="form-control inp-sipd" name="tpp_tempat_bertugas[{{ $pid }}]" value="{{ old("tpp_tempat_bertugas.$pid", $defaults['tpp_tempat_bertugas'] ?? 0) }}" min="0" step="0.01" required></div></td>
+              <td data-column-group="sipd"><div class="input-stack"><input type="number" class="form-control inp-sipd" name="tunjangan_pph[{{ $pid }}]" value="{{ old("tunjangan_pph.$pid", $defaults['tunjangan_pph'] ?? 0) }}" min="0" step="0.01" required></div></td>
+              <td data-column-group="sipd">
                 <input type="hidden" name="hitung_pajak[{{ $pid }}]" value="0">
                 <div class="form-check d-flex justify-content-center">
                   <input class="form-check-input hitung-pajak-item" type="checkbox" name="hitung_pajak[{{ $pid }}]" value="1" @checked((int) old("hitung_pajak.$pid", array_key_exists('hitung_pajak', $defaults ?? []) ? (int) $defaults['hitung_pajak'] : 0) === 1)>
                 </div>
               </td>
-              <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_jkk[{{ $pid }}]" value="{{ old("iuran_jkk.$pid", $defaults['iuran_jkk'] ?? 0) }}" min="0" step="0.01" required></div></td>
-              <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_jkm[{{ $pid }}]" value="{{ old("iuran_jkm.$pid", $defaults['iuran_jkm'] ?? 0) }}" min="0" step="0.01" required></div></td>
-              <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_tapera[{{ $pid }}]" value="{{ old("iuran_tapera.$pid", $defaults['iuran_tapera'] ?? 0) }}" min="0" step="0.01" required></div></td>
-              <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_pensiun[{{ $pid }}]" value="{{ old("iuran_pensiun.$pid", $defaults['iuran_pensiun'] ?? 0) }}" min="0" step="0.01" required></div></td>
-              <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="tunjangan_jht[{{ $pid }}]" value="{{ old("tunjangan_jht.$pid", $defaults['tunjangan_jht'] ?? 0) }}" min="0" step="0.01" required></div></td>
-              <td><div class="input-stack"><input type="number" class="form-control inp-sipd" name="bulog[{{ $pid }}]" value="{{ old("bulog.$pid", $defaults['bulog'] ?? 0) }}" min="0" step="0.01" required></div></td>
+              <td data-column-group="sipd"><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_jkk[{{ $pid }}]" value="{{ old("iuran_jkk.$pid", $defaults['iuran_jkk'] ?? 0) }}" min="0" step="0.01" required></div></td>
+              <td data-column-group="sipd"><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_jkm[{{ $pid }}]" value="{{ old("iuran_jkm.$pid", $defaults['iuran_jkm'] ?? 0) }}" min="0" step="0.01" required></div></td>
+              <td data-column-group="sipd"><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_tapera[{{ $pid }}]" value="{{ old("iuran_tapera.$pid", $defaults['iuran_tapera'] ?? 0) }}" min="0" step="0.01" required></div></td>
+              <td data-column-group="sipd"><div class="input-stack"><input type="number" class="form-control inp-sipd" name="iuran_pensiun[{{ $pid }}]" value="{{ old("iuran_pensiun.$pid", $defaults['iuran_pensiun'] ?? 0) }}" min="0" step="0.01" required></div></td>
+              <td data-column-group="sipd"><div class="input-stack"><input type="number" class="form-control inp-sipd" name="tunjangan_jht[{{ $pid }}]" value="{{ old("tunjangan_jht.$pid", $defaults['tunjangan_jht'] ?? 0) }}" min="0" step="0.01" required></div></td>
+              <td data-column-group="sipd"><div class="input-stack"><input type="number" class="form-control inp-sipd" name="bulog[{{ $pid }}]" value="{{ old("bulog.$pid", $defaults['bulog'] ?? 0) }}" min="0" step="0.01" required></div></td>
             </tr>
           @endforeach
         </tbody>
@@ -553,6 +644,50 @@
 
 @push('scripts')
 <script>
+  const tppGroupDescriptions = {
+    kinerja: '<strong>Kinerja:</strong> produktivitas, kehadiran, dan perilaku. Gunakan “Set 100%” bila seluruh pegawai memiliki nilai penuh.',
+    potongan: '<strong>Potongan &amp; BPJS:</strong> tambahan TPP, persentase potongan, BPJS peserta, dan BPJS pemberi kerja.',
+    sipd: '<strong>Komponen SIPD:</strong> tempat bertugas, tunjangan/potongan PPh, JKK, JKM, Tapera, pensiun, JHT, dan Bulog.',
+    all: '<strong>Semua kolom:</strong> gunakan tampilan ini hanya bila perlu membandingkan seluruh komponen secara bersamaan.'
+  };
+
+  const setActiveTppGroup = (group, remember = true) => {
+    const selectedGroup = Object.prototype.hasOwnProperty.call(tppGroupDescriptions, group) ? group : 'kinerja';
+    const table = document.querySelector('.tpp-massal-table');
+
+    document.querySelectorAll('[data-column-group]').forEach(cell => {
+      const hidden = selectedGroup !== 'all' && cell.dataset.columnGroup !== selectedGroup;
+      cell.classList.toggle('tpp-column-hidden', hidden);
+    });
+
+    document.querySelectorAll('[data-tpp-group]').forEach(button => {
+      const active = button.dataset.tppGroup === selectedGroup;
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    document.querySelectorAll('[data-action-group]').forEach(button => {
+      button.classList.toggle('d-none', selectedGroup !== 'all' && button.dataset.actionGroup !== selectedGroup);
+    });
+
+    if (table) table.dataset.activeGroup = selectedGroup;
+    const help = document.getElementById('tppGroupHelp');
+    if (help) help.innerHTML = tppGroupDescriptions[selectedGroup];
+
+    if (remember) {
+      try { window.localStorage.setItem('tpp-input-active-group', selectedGroup); } catch (error) {}
+    }
+  };
+
+  document.querySelectorAll('[data-tpp-group]').forEach(button => {
+    button.addEventListener('click', () => setActiveTppGroup(button.dataset.tppGroup));
+  });
+
+  let initialTppGroup = 'kinerja';
+  try { initialTppGroup = window.localStorage.getItem('tpp-input-active-group') || 'kinerja'; } catch (error) {}
+  setActiveTppGroup(initialTppGroup, false);
+
+  const markEdited = (input) => input.classList.add('is-edited');
+
   const updatePotonganPreview = (input) => {
     const row = input.closest('tr');
     const target = row?.querySelector('.preview-potongan');
@@ -570,23 +705,33 @@
     el.addEventListener('change', () => updatePotonganPreview(el));
   });
 
+  document.querySelectorAll('.tpp-massal-table input').forEach(input => {
+    input.addEventListener('input', () => markEdited(input));
+    input.addEventListener('change', () => markEdited(input));
+  });
+
+  const setMassalValue = (selector, value) => {
+    document.querySelectorAll(selector).forEach(input => {
+      input.value = value;
+      markEdited(input);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  };
+
   document.getElementById('btnSet100')?.addEventListener('click', () => {
-    document.querySelectorAll('.inp-prod,.inp-keh,.inp-per').forEach(el => el.value = 100);
+    setMassalValue('.inp-prod,.inp-keh,.inp-per', 100);
   });
   document.getElementById('btnSetBpjs0')?.addEventListener('click', () => {
-    document.querySelectorAll('.inp-bpjs').forEach(el => el.value = 0);
+    setMassalValue('.inp-bpjs', 0);
   });
   document.getElementById('btnSetBpjs4Zero')?.addEventListener('click', () => {
-    document.querySelectorAll('.inp-bpjs-4').forEach(el => el.value = 0);
+    setMassalValue('.inp-bpjs-4', 0);
   });
   document.getElementById('btnSetPotongan0')?.addEventListener('click', () => {
-    document.querySelectorAll('.inp-potongan').forEach(el => {
-      el.value = 0;
-      updatePotonganPreview(el);
-    });
+    setMassalValue('.inp-potongan', 0);
   });
   document.getElementById('btnSetSipd0')?.addEventListener('click', () => {
-    document.querySelectorAll('.inp-sipd').forEach(el => el.value = 0);
+    setMassalValue('.inp-sipd', 0);
   });
 
   const searchInput = document.getElementById('pegawaiSearchInput');
@@ -615,13 +760,28 @@
   document.getElementById('btnPilihSemuaPajakCreate')?.addEventListener('click', () => {
     document.querySelectorAll('.hitung-pajak-item').forEach(el => {
       el.checked = true;
+      markEdited(el);
     });
   });
 
   document.getElementById('btnKosongkanSemuaPajakCreate')?.addEventListener('click', () => {
     document.querySelectorAll('.hitung-pajak-item').forEach(el => {
       el.checked = false;
+      markEdited(el);
     });
+  });
+
+  document.getElementById('tppMassalForm')?.addEventListener('submit', event => {
+    const invalidInput = event.currentTarget.querySelector(':invalid');
+    if (!invalidInput) return;
+
+    event.preventDefault();
+    const group = invalidInput.closest('[data-column-group]')?.dataset.columnGroup;
+    if (group) setActiveTppGroup(group);
+    window.setTimeout(() => {
+      invalidInput.focus({ preventScroll: false });
+      invalidInput.reportValidity();
+    }, 0);
   });
 </script>
 @endpush
