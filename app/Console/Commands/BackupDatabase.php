@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Models\BackupRun;
 use App\Support\MySqlBackupProcess;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class BackupDatabase extends Command
@@ -14,8 +16,13 @@ class BackupDatabase extends Command
 
     public function handle(MySqlBackupProcess $backupProcess): int
     {
+        $type = $this->option('weekly') ? 'weekly' : 'daily';
+        $run = $this->startRun($type);
+
         if (config('database.default') !== 'mysql') {
-            $this->error('Perintah backup hanya mendukung koneksi MySQL.');
+            $message = 'Perintah backup hanya mendukung koneksi MySQL.';
+            $this->recordFailure($run, $type, $message);
+            $this->error($message);
             return self::FAILURE;
         }
 
@@ -39,6 +46,8 @@ class BackupDatabase extends Command
             }
 
             $this->prune($localPath, (int) config('backup.local_retention_days'));
+            $checksum = hash_file('sha256', $gzipPath);
+            $this->recordSuccess($run, $type, $gzipPath, (int) filesize($gzipPath), $checksum);
             $this->info('Backup berhasil: ' . $gzipPath);
             return self::SUCCESS;
         } catch (\Throwable $e) {
@@ -47,8 +56,67 @@ class BackupDatabase extends Command
                 @unlink($gzipPath);
             }
             report($e);
+            $this->recordFailure($run, $type, $e->getMessage());
             $this->error('Backup gagal: ' . $e->getMessage());
             return self::FAILURE;
+        }
+    }
+
+    private function startRun(string $type): ?BackupRun
+    {
+        try {
+            return BackupRun::query()->create([
+                'type' => $type,
+                'status' => 'running',
+                'started_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Riwayat proses backup tidak dapat dibuat.', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    private function recordSuccess(?BackupRun $run, string $type, string $path, int $size, string $checksum): void
+    {
+        $context = compact('type', 'path', 'size', 'checksum');
+        Log::info('Backup database berhasil.', $context);
+
+        if (!$run) {
+            return;
+        }
+
+        try {
+            $run->update([
+                'status' => 'success',
+                'file_path' => $path,
+                'size_bytes' => $size,
+                'checksum' => $checksum,
+                'finished_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Riwayat keberhasilan backup tidak dapat diperbarui.', ['error' => $e->getMessage()] + $context);
+        }
+    }
+
+    private function recordFailure(?BackupRun $run, string $type, string $message): void
+    {
+        Log::error('Backup database gagal.', ['type' => $type, 'error' => $message]);
+
+        if (!$run) {
+            return;
+        }
+
+        try {
+            $run->update([
+                'status' => 'failed',
+                'error_message' => mb_substr($message, 0, 65000),
+                'finished_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Riwayat kegagalan backup tidak dapat diperbarui.', ['error' => $e->getMessage()]);
         }
     }
 

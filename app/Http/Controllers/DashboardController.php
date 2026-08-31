@@ -6,12 +6,13 @@ use App\Models\Pegawai;
 use App\Models\Tpp;
 use App\Models\User;
 use App\Models\UnitKerja;
+use App\Support\BackupHealth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, BackupHealth $backupHealth)
     {
         $defaultPeriod = Carbon::now()->startOfMonth()->subMonth();
         $bulan = (int) ($request->bulan ?? $defaultPeriod->month);
@@ -33,6 +34,9 @@ class DashboardController extends Controller
         $availableUnitKerjas = collect();
         $selectedUnitKerjaId = null;
         $activeUnitKerja = $request->user()?->unitKerja;
+        $backupHealthSummary = $request->user()?->isSuperAdmin()
+            ? $backupHealth->summary()
+            : null;
 
         if ($viewerMode) {
             $baseQuery = Tpp::query()
@@ -133,6 +137,6 @@ class DashboardController extends Controller
             $values[] = $found ? (float) $found->total : 0;
         }
 
-        return view('dashboard.index', compact('bulan', 'tahun', 'viewerMode', 'viewerPegawai', 'viewerNeedsPegawaiMapping', 'totalPegawai', 'pegawaiTanpaKelas', 'pegawaiBelumDihitung', 'jumlahPerhitungan', 'totalTppKotor', 'totalBpjs', 'totalPajak', 'totalZakat', 'totalDiterima', 'rataDiterima', 'top5', 'periodeTerakhir', 'userAdmin', 'userOperator', 'userViewer', 'labels', 'values', 'viewerProfileCompletion', 'viewerProfileFieldsFilled', 'viewerProfileFieldsTotal', 'viewerSelectedTpp', 'viewerLatestTpp', 'viewerRecentPeriods', 'viewerAverageProduktivitas', 'viewerAverageKehadiran', 'viewerAveragePerilaku', 'viewerProfileChecklist', 'availableUnitKerjas', 'selectedUnitKerjaId', 'activeUnitKerja'));
+        return view('dashboard.index', compact('bulan', 'tahun', 'viewerMode', 'viewerPegawai', 'viewerNeedsPegawaiMapping', 'totalPegawai', 'pegawaiTanpaKelas', 'pegawaiBelumDihitung', 'jumlahPerhitungan', 'totalTppKotor', 'totalBpjs', 'totalPajak', 'totalZakat', 'totalDiterima', 'rataDiterima', 'top5', 'periodeTerakhir', 'userAdmin', 'userOperator', 'userViewer', 'labels', 'values', 'viewerProfileCompletion', 'viewerProfileFieldsFilled', 'viewerProfileFieldsTotal', 'viewerSelectedTpp', 'viewerLatestTpp', 'viewerRecentPeriods', 'viewerAverageProduktivitas', 'viewerAverageKehadiran', 'viewerAveragePerilaku', 'viewerProfileChecklist', 'availableUnitKerjas', 'selectedUnitKerjaId', 'activeUnitKerja', 'backupHealthSummary'));
     }
 }

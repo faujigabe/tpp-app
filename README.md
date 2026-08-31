@@ -194,6 +194,8 @@ MYSQL_BINARY=mysql
 BACKUP_LOCAL_RETENTION_DAYS=14
 BACKUP_WEEKLY_RETENTION_DAYS=365
 AUDIT_RETENTION_YEARS=5
+BACKUP_DAILY_MAX_AGE_HOURS=26
+BACKUP_WEEKLY_MAX_AGE_HOURS=192
 ```
 
 Uji backup secara manual:
@@ -209,6 +211,8 @@ Setiap arsip `.sql.gz` disertai file `.sha256`. Restore menolak arsip tanpa chec
 php artisan database:restore "D:\tpp-backups-weekly\tpp_20260828_020000.sql.gz" --confirm=RESTORE
 php artisan optimize:clear
 ```
+
+Super admin dapat membuka menu **Monitoring Backup** untuk melihat file harian dan mingguan terbaru, usia file, validitas checksum, ukuran, serta riwayat keberhasilan atau kegagalan proses. Dashboard super admin menampilkan peringatan jika file tidak ditemukan, checksum tidak valid, backup harian berusia lebih dari 26 jam, atau backup mingguan berusia lebih dari 192 jam.
 
 Laravel Scheduler harus dipanggil setiap menit. Pada Windows, buat satu tugas di **Task Scheduler** yang menjalankan perintah berikut dari folder aplikasi:
 

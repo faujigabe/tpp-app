@@ -10,6 +10,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\UnitKerjaController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\BackupMonitorController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -75,6 +76,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::middleware(['role:super_admin'])->group(function () {
+        Route::get('/backup-monitor', [BackupMonitorController::class, 'index'])->name('backup-monitor.index');
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
         Route::post('/tpp/lock-period', [TppController::class, 'lockPeriod'])->name('tpp.lock-period');
         Route::post('/tpp/unlock-period', [TppController::class, 'unlockPeriod'])->name('tpp.unlock-period');
