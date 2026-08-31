@@ -141,11 +141,11 @@
         </div>
 
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+            <div class="table-responsive mobile-card-table-wrap">
+                <table class="table table-hover align-middle mb-0 mobile-card-table">
                     <thead class="table-light">
                         <tr>
-                            <th class="text-center" style="width: 52px;">
+                            <th class="text-center" style="width: 52px;" data-mobile-label="Pilih">
                                 <input class="form-check-input" type="checkbox" id="check-all">
                             </th>
                             <th>Pegawai</th>
