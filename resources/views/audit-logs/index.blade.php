@@ -62,8 +62,8 @@
 </div>
 
 <div class="card shadow-soft border-0">
-    <div class="table-responsive">
-        <table class="table align-middle mb-0">
+    <div class="table-responsive mobile-card-table-wrap">
+        <table class="table align-middle mb-0 mobile-card-table">
             <thead><tr><th>Waktu</th><th>Pelaku</th><th>Aksi</th><th>Data</th><th>Unit</th><th>Perubahan</th></tr></thead>
             <tbody>
             @forelse($logs as $log)

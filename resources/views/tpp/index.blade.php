@@ -269,11 +269,11 @@
     </div>
 
     <div class="card-body pt-3">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive mobile-card-table-wrap">
+            <table class="table table-hover align-middle mb-0 mobile-card-table">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 60px;">#</th>
+                        <th style="width: 60px;" data-mobile-label="Nomor">#</th>
                         <th>Pegawai</th>
                         @if($isSuperAdmin && !$viewerMode)
                             <th style="width: 210px;">Unit Kerja</th>

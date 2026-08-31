@@ -1021,6 +1021,103 @@
             border: 0;
             border-radius: 14px;
         }
+
+        @media (max-width: 767.98px) {
+            .mobile-card-table-wrap {
+                overflow: visible;
+            }
+
+            .mobile-card-table {
+                display: block;
+                width: 100%;
+                border: 0;
+                background: transparent;
+            }
+
+            .mobile-card-table thead {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }
+
+            .mobile-card-table tbody,
+            .mobile-card-table tr,
+            .mobile-card-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .mobile-card-table tbody {
+                padding: .75rem;
+            }
+
+            .mobile-card-table tbody tr {
+                margin-bottom: 1rem;
+                border: 1px solid #e4eaf2;
+                border-radius: 18px;
+                overflow: hidden;
+                background: #fff;
+                box-shadow: 0 10px 24px rgba(15, 23, 42, .07);
+            }
+
+            .mobile-card-table tbody tr:last-child {
+                margin-bottom: 0;
+            }
+
+            .mobile-card-table tbody td {
+                display: grid;
+                grid-template-columns: minmax(105px, .72fr) minmax(0, 1.28fr);
+                gap: .8rem;
+                align-items: start;
+                padding: .8rem 1rem !important;
+                border: 0;
+                border-bottom: 1px solid #edf1f6;
+                text-align: left !important;
+                white-space: normal !important;
+                min-width: 0 !important;
+            }
+
+            .mobile-card-table tbody td:last-child {
+                border-bottom: 0;
+            }
+
+            .mobile-card-table tbody td::before {
+                content: attr(data-mobile-label);
+                color: #64748b;
+                font-size: .76rem;
+                font-weight: 700;
+                letter-spacing: .03em;
+                text-transform: uppercase;
+                line-height: 1.4;
+            }
+
+            .mobile-card-table tbody tr.mobile-card-empty td {
+                display: block;
+                text-align: center !important;
+            }
+
+            .mobile-card-table tbody tr.mobile-card-empty td::before {
+                display: none;
+            }
+
+            .mobile-card-table .mobile-card-primary {
+                background: #f8fbff;
+            }
+
+            .mobile-card-table .mobile-card-primary > :last-child {
+                min-width: 0;
+            }
+
+            .mobile-card-table td[data-mobile-label="Aksi"] .d-flex {
+                justify-content: flex-start !important;
+            }
+        }
     </style>
     @stack('styles')
 </head>
@@ -1194,6 +1291,31 @@
             window.setTimeout(function () {
                 bootstrap.Alert.getOrCreateInstance(alertElement).close();
             }, delay);
+        });
+
+        document.querySelectorAll('table.mobile-card-table').forEach(function (table) {
+            const labels = Array.from(table.querySelectorAll('thead th')).map(function (header, index) {
+                return (header.dataset.mobileLabel || header.textContent || '').replace(/\s+/g, ' ').trim() || `Kolom ${index + 1}`;
+            });
+
+            table.querySelectorAll('tbody tr').forEach(function (row) {
+                const cells = Array.from(row.children).filter(function (cell) {
+                    return cell.tagName === 'TD';
+                });
+
+                if (cells.some(function (cell) { return cell.hasAttribute('colspan'); })) {
+                    row.classList.add('mobile-card-empty');
+                    return;
+                }
+
+                cells.forEach(function (cell, index) {
+                    if (!cell.hasAttribute('data-mobile-label')) {
+                        cell.setAttribute('data-mobile-label', labels[index] || `Kolom ${index + 1}`);
+                    }
+                });
+
+                if (cells[1]) cells[1].classList.add('mobile-card-primary');
+            });
         });
 
         const syncSidebarState = () => {
