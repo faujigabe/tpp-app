@@ -22,6 +22,8 @@
     };
     $jumlahDataFilter = $tpps->total();
     $periodeLabel = ($bulan && $tahun) ? (($bulanNama[(int)$bulan] ?? $bulan) . ' ' . $tahun) : 'Semua Periode';
+    $periodReadiness = $periodReadiness ?? null;
+    $periodReady = (bool) ($periodReadiness['ready'] ?? false);
 @endphp
 
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
@@ -175,6 +177,62 @@
 </div>
 
 @unless($viewerMode)
+@if($periodReadiness)
+<div class="card shadow-sm mb-3 border-0 {{ $periodReady ? 'border-start border-success border-4' : 'border-start border-warning border-4' }}">
+    <div class="card-body">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+            <div class="flex-grow-1">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <div class="fw-semibold">Kesiapan Periode {{ $periodeLabel }}</div>
+                    <span class="badge {{ $periodReady ? 'text-bg-success' : 'text-bg-warning' }}">{{ $periodReadiness['percentage'] }}% siap</span>
+                </div>
+                <p class="small text-muted mb-2">{{ $periodReadiness['message'] }}</p>
+                <div class="progress" style="height: 8px;" role="progressbar" aria-valuenow="{{ $periodReadiness['percentage'] }}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar {{ $periodReady ? 'bg-success' : 'bg-warning' }}" style="width: {{ $periodReadiness['percentage'] }}%"></div>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-3 align-items-start">
+                <div><span class="text-muted small d-block">Pegawai aktif</span><strong>{{ $periodReadiness['total'] }}</strong></div>
+                <div><span class="text-muted small d-block">Sudah dihitung</span><strong>{{ $periodReadiness['calculated'] }}</strong></div>
+                <div><span class="text-muted small d-block">Belum dihitung</span><strong class="{{ $periodReadiness['missing_tpp']->isNotEmpty() ? 'text-danger' : 'text-success' }}">{{ $periodReadiness['missing_tpp']->count() }}</strong></div>
+                <div><span class="text-muted small d-block">Tanpa kelas</span><strong class="{{ $periodReadiness['missing_kelas']->isNotEmpty() ? 'text-danger' : 'text-success' }}">{{ $periodReadiness['missing_kelas']->count() }}</strong></div>
+            </div>
+        </div>
+
+        @if(!$periodReady)
+        <div class="row g-3 mt-1">
+            @if($periodReadiness['missing_tpp']->isNotEmpty())
+            <div class="col-lg-6">
+                <div class="small fw-semibold mb-1">Belum memiliki rincian TPP</div>
+                <div class="small text-muted">
+                    {{ $periodReadiness['missing_tpp']->take(5)->map(fn ($pegawai) => $pegawai->nama . ' (' . $pegawai->nip . ')')->implode(', ') }}
+                    @if($periodReadiness['missing_tpp']->count() > 5)
+                        dan {{ $periodReadiness['missing_tpp']->count() - 5 }} pegawai lainnya.
+                    @endif
+                </div>
+                @if($isUnitEditor)
+                    <a href="{{ route('tpp.create', ['bulan' => $bulan, 'tahun' => $tahun]) }}" class="btn btn-sm btn-outline-primary mt-2">Lengkapi Input TPP</a>
+                @endif
+            </div>
+            @endif
+            @if($periodReadiness['missing_kelas']->isNotEmpty())
+            <div class="col-lg-6">
+                <div class="small fw-semibold mb-1">Belum memiliki kelas jabatan</div>
+                <div class="small text-muted">
+                    {{ $periodReadiness['missing_kelas']->take(5)->map(fn ($pegawai) => $pegawai->nama . ' (' . $pegawai->nip . ')')->implode(', ') }}
+                    @if($periodReadiness['missing_kelas']->count() > 5)
+                        dan {{ $periodReadiness['missing_kelas']->count() - 5 }} pegawai lainnya.
+                    @endif
+                </div>
+                <a href="{{ route('pegawai.index') }}" class="btn btn-sm btn-outline-danger mt-2">Perbaiki Data Pegawai</a>
+            </div>
+            @endif
+        </div>
+        @endif
+    </div>
+</div>
+@endif
+
 <div class="card shadow-sm mb-3 border-0">
     <div class="card-body d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
         <div>
@@ -183,37 +241,31 @@
         </div>
 
         <div class="d-flex gap-2 flex-wrap justify-content-lg-end align-items-center">
-            @if(!$viewerMode && $isUnitEditor && $jumlahDataFilter > 0 && $periodStatus === \App\Models\TppApproval::STATUS_DRAFT)
+            @if(!$viewerMode && $isUnitEditor && $periodStatus === \App\Models\TppApproval::STATUS_DRAFT)
                 <form action="{{ route('tpp.submit-period') }}" method="POST" data-confirm data-confirm-title="Kirim TPP untuk validasi?" data-confirm-message="Periode {{ $periodeLabel }} akan dikirim. Data tidak dapat diedit sampai super admin membuka kembali periode." data-confirm-label="Kirim TPP" data-confirm-variant="primary">
                     @csrf
                     <input type="hidden" name="bulan" value="{{ $bulan }}">
                     <input type="hidden" name="tahun" value="{{ $tahun }}">
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" {{ !$periodReady ? 'disabled' : '' }} title="{{ !$periodReady ? ($periodReadiness['message'] ?? 'Periode belum siap.') : '' }}">
                         <i class="bi bi-send-check me-1"></i> Kirim TPP
                     </button>
                 </form>
             @endif
-            @if(!$viewerMode && $isSuperAdmin && $selectedUnitKerjaId && $jumlahDataFilter > 0 && $periodStatus === \App\Models\TppApproval::STATUS_SUBMITTED)
+            @if(!$viewerMode && $isSuperAdmin && $selectedUnitKerjaId && $periodStatus === \App\Models\TppApproval::STATUS_SUBMITTED)
                 <form action="{{ route('tpp.lock-period') }}" method="POST" data-confirm data-confirm-title="Validasi dan kunci periode?" data-confirm-message="TPP {{ $periodeLabel }} untuk {{ $activeUnitKerjaName ?: 'unit kerja terpilih' }} akan dikunci. Admin dan operator tidak dapat mengubah data sampai kunci dibuka." data-confirm-label="Validasi & Kunci" data-confirm-variant="success">
                     @csrf
                     <input type="hidden" name="unit_kerja_id" value="{{ $selectedUnitKerjaId }}">
                     <input type="hidden" name="bulan" value="{{ $bulan }}">
                     <input type="hidden" name="tahun" value="{{ $tahun }}">
-                    <button type="submit" class="btn btn-success">
+                    <button type="submit" class="btn btn-success" {{ !$periodReady ? 'disabled' : '' }} title="{{ !$periodReady ? ($periodReadiness['message'] ?? 'Periode belum siap.') : '' }}">
                         <i class="bi bi-lock-fill me-1"></i> Validasi &amp; Kunci TPP
                     </button>
                 </form>
             @endif
             @if(!$viewerMode && $isSuperAdmin && $selectedUnitKerjaId && in_array($periodStatus, [\App\Models\TppApproval::STATUS_SUBMITTED, \App\Models\TppApproval::STATUS_LOCKED], true))
-                <form action="{{ route('tpp.unlock-period') }}" method="POST" data-confirm data-confirm-title="Buka kembali periode?" data-confirm-message="Status TPP {{ $periodeLabel }} akan kembali menjadi draft sehingga admin dan operator dapat mengubah data kembali." data-confirm-label="Buka Kunci" data-confirm-variant="warning">
-                    @csrf
-                    <input type="hidden" name="unit_kerja_id" value="{{ $selectedUnitKerjaId }}">
-                    <input type="hidden" name="bulan" value="{{ $bulan }}">
-                    <input type="hidden" name="tahun" value="{{ $tahun }}">
-                    <button type="submit" class="btn btn-outline-warning">
-                        <i class="bi bi-unlock-fill me-1"></i> Buka Kunci Validasi
-                    </button>
-                </form>
+                <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#bukaPeriodeModal">
+                    <i class="bi bi-unlock-fill me-1"></i> Buka Kunci Validasi
+                </button>
             @endif
             @if(!$viewerMode && !$isSuperAdmin && ($waValidCount ?? 0) > 0)
                 <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#whatsappMassalModal">
@@ -244,6 +296,35 @@
     </div>
 </div>
 @endunless
+
+@if(!$viewerMode && $isSuperAdmin && $selectedUnitKerjaId && in_array($periodStatus, [\App\Models\TppApproval::STATUS_SUBMITTED, \App\Models\TppApproval::STATUS_LOCKED], true))
+<div class="modal fade" id="bukaPeriodeModal" tabindex="-1" aria-labelledby="bukaPeriodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ route('tpp.unlock-period') }}" method="POST">
+                @csrf
+                <input type="hidden" name="unit_kerja_id" value="{{ $selectedUnitKerjaId }}">
+                <input type="hidden" name="bulan" value="{{ $bulan }}">
+                <input type="hidden" name="tahun" value="{{ $tahun }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="bukaPeriodeModalLabel">Buka Kembali Periode</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning small">Periode {{ $periodeLabel }} akan kembali menjadi Draft dan dapat diedit oleh Admin/Operator.</div>
+                    <label for="alasanBukaPeriode" class="form-label fw-semibold">Alasan pembukaan periode</label>
+                    <textarea id="alasanBukaPeriode" name="alasan" class="form-control" rows="4" minlength="10" maxlength="500" required placeholder="Contoh: Perbaikan data kehadiran pegawai berdasarkan hasil verifikasi.">{{ old('alasan') }}</textarea>
+                    <div class="form-text">Wajib diisi minimal 10 karakter dan akan disimpan dalam riwayat status.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-unlock-fill me-1"></i>Buka Periode</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
 
 @if(($waValidCount ?? 0) === 0 && $jumlahDataFilter > 0 && !$viewerMode && !$isSuperAdmin)
     <div class="alert alert-light border text-muted">
