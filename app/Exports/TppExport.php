@@ -4,12 +4,13 @@ namespace App\Exports;
 
 use App\Models\Tpp;
 use App\Models\User;
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 
-class TppExport extends SafeExcelValueBinder implements FromCollection, WithHeadings, WithMapping, WithCustomValueBinder
+class TppExport extends SafeExcelValueBinder implements FromQuery, WithHeadings, WithMapping, WithCustomValueBinder
 {
     public function __construct(
         protected ?int $bulan = null,
@@ -19,7 +20,7 @@ class TppExport extends SafeExcelValueBinder implements FromCollection, WithHead
         protected ?string $search = null
     ) {}
 
-    public function collection()
+    public function query(): Builder
     {
         $targetUnitKerjaId = $this->user
             ? ($this->user->isSuperAdmin() ? $this->selectedUnitKerjaId : (int) $this->user->unit_kerja_id)
@@ -46,8 +47,7 @@ class TppExport extends SafeExcelValueBinder implements FromCollection, WithHead
         }
 
         return $q->orderBy('tahun', 'desc')
-            ->orderBy('bulan', 'desc')
-            ->get();
+            ->orderBy('bulan', 'desc');
     }
 
     public function headings(): array
