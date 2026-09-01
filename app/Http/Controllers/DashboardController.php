@@ -8,11 +8,14 @@ use App\Models\TppApproval;
 use App\Models\User;
 use App\Models\UnitKerja;
 use App\Support\BackupHealth;
+use App\Services\TppPeriodReadiness;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
+    public function __construct(private TppPeriodReadiness $periodReadiness) {}
+
     public function index(Request $request, BackupHealth $backupHealth)
     {
         $defaultPeriod = Carbon::now()->startOfMonth()->subMonth();
@@ -120,10 +123,12 @@ class DashboardController extends Controller
             $pegawaiTanpaKelas = (clone $pegawaiAktifPeriodeScope)->whereNull('kelas_jabatan_id')->count();
             $jumlahPerhitungan = (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->count();
             $pegawaiBelumDihitung = max($totalPegawai - $jumlahPerhitungan, 0);
-            $pegawaiSiap = (clone $pegawaiAktifPeriodeScope)
-                ->whereNotNull('kelas_jabatan_id')
-                ->whereHas('tpps', fn ($query) => $query->where('bulan', $bulan)->where('tahun', $tahun))
-                ->count();
+            $pegawaiSiap = $targetUnitKerjaId
+                ? $this->periodReadiness->analyze($targetUnitKerjaId, $bulan, $tahun)['ready_count']
+                : (clone $pegawaiAktifPeriodeScope)
+                    ->whereNotNull('kelas_jabatan_id')
+                    ->whereHas('tpps', fn ($query) => $query->where('bulan', $bulan)->where('tahun', $tahun))
+                    ->count();
             $totalTppKotor = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('tpp_kotor');
             $totalBpjs = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('iuran_wajib');
             $totalPajak = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('pajak');

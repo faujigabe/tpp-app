@@ -14,6 +14,7 @@ use App\Exports\TppRekapExport;
 use App\Exports\TppSipdExport;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Services\TppCalculator;
+use App\Services\TppPeriodReadiness;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
@@ -25,7 +26,10 @@ use Illuminate\Validation\ValidationException;
 
 class TppController extends Controller
 {
-    public function __construct(private TppCalculator $calculator) {}
+    public function __construct(
+        private TppCalculator $calculator,
+        private TppPeriodReadiness $periodReadiness,
+    ) {}
 
     public function create(Request $request)
     {
@@ -352,6 +356,9 @@ class TppController extends Controller
             : null;
         $periodStatus = $periodApproval?->normalizedStatus() ?? TppApproval::STATUS_DRAFT;
         $periodCanEdit = in_array($request->user()?->role, ['admin', 'operator'], true) && $periodStatus === TppApproval::STATUS_DRAFT;
+        $periodReadiness = (!$viewerMode && $approvalUnitKerjaId && $selectedBulan && $selectedTahun)
+            ? $this->periodReadiness->analyze((int) $approvalUnitKerjaId, $selectedBulan, $selectedTahun)
+            : null;
 
         return view('tpp.index', compact(
             'tpps',
@@ -366,7 +373,8 @@ class TppController extends Controller
             'activeUnitKerja',
             'periodApproval',
             'periodStatus',
-            'periodCanEdit'
+            'periodCanEdit',
+            'periodReadiness'
         ));
     }
 
@@ -594,13 +602,9 @@ class TppController extends Controller
             return back()->with('error', 'Hanya periode berstatus draft yang dapat dikirim untuk validasi.');
         }
 
-        $hasData = $this->tppUnitScope(Tpp::query(), $request)
-            ->where('bulan', $bulan)
-            ->where('tahun', $tahun)
-            ->exists();
-
-        if (!$hasData) {
-            return back()->with('error', 'Tidak ada data TPP untuk dikirim pada periode yang dipilih.');
+        $readiness = $this->periodReadiness->analyze($unitKerjaId, $bulan, $tahun);
+        if (!$readiness['ready']) {
+            return back()->with('error', $readiness['message']);
         }
 
         $approval->fill([
@@ -629,14 +633,9 @@ class TppController extends Controller
             return back()->with('error', 'TPP hanya dapat dikunci setelah dikirim oleh admin/operator unit kerja.');
         }
 
-        $hasData = Tpp::query()
-            ->forUnit((int) $data['unit_kerja_id'])
-            ->where('bulan', (int) $data['bulan'])
-            ->where('tahun', (int) $data['tahun'])
-            ->exists();
-
-        if (!$hasData) {
-            return back()->with('error', 'Periode ini tidak bisa dikunci karena tidak memiliki data TPP.');
+        $readiness = $this->periodReadiness->analyze((int) $data['unit_kerja_id'], (int) $data['bulan'], (int) $data['tahun']);
+        if (!$readiness['ready']) {
+            return back()->with('error', 'Periode tidak dapat dikunci. ' . $readiness['message']);
         }
 
         $approval->fill([
@@ -658,6 +657,10 @@ class TppController extends Controller
             'unit_kerja_id' => 'required|integer|exists:unit_kerjas,id',
             'bulan' => 'required|integer|min:1|max:12',
             'tahun' => 'required|integer|min:2000|max:2100',
+            'alasan' => 'required|string|min:10|max:500',
+        ], [
+            'alasan.required' => 'Alasan pembukaan periode wajib diisi.',
+            'alasan.min' => 'Alasan pembukaan periode minimal 10 karakter.',
         ]);
 
         $approval = $this->getOrInitializeApproval((int) $data['unit_kerja_id'], (int) $data['bulan'], (int) $data['tahun']);
@@ -672,7 +675,7 @@ class TppController extends Controller
             'locked_by' => null,
             'locked_at' => null,
         ]);
-        $approval->appendHistory('Kunci periode dibuka', $request->user()?->name);
+        $approval->appendHistory('Kunci periode dibuka', $request->user()?->name, $data['alasan']);
         $approval->save();
 
         return back()->with('success', 'Kunci TPP berhasil dibuka. Admin/operator unit kerja kini bisa mengedit kembali.');
