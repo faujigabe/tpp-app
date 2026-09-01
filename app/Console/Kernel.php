@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('database:backup')->dailyAt('01:00')->timezone('Asia/Jakarta')->withoutOverlapping();
         $schedule->command('database:backup --weekly')->sundays()->at('02:00')->timezone('Asia/Jakarta')->withoutOverlapping();
         $schedule->command('audit:prune')->monthlyOn(1, '03:00')->timezone('Asia/Jakarta')->withoutOverlapping();
+        $schedule->command('notifications:prune')->monthlyOn(1, '03:30')->timezone('Asia/Jakarta')->withoutOverlapping();
     }
 
     /**
