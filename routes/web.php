@@ -11,6 +11,7 @@ use App\Http\Controllers\UnitKerjaController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BackupMonitorController;
+use App\Http\Controllers\NotificationController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -20,6 +21,9 @@ Route::get('/faq', [FaqController::class, 'index'])->name('faq.index');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::get('/profile/photo', [ProfileController::class, 'photo'])->name('profile.photo');

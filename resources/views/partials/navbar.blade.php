@@ -2,6 +2,7 @@
     use Illuminate\Support\Str;
 
     $isDashboard = request()->routeIs('dashboard');
+    $isNotifications = request()->routeIs('notifications.*');
     $isTppList = request()->routeIs('tpp.index');
     $isTppInput = request()->routeIs('tpp.create') || request()->routeIs('tpp.store');
     $isTppEditItem = request()->routeIs('tpp.edit') || request()->routeIs('tpp.update') || request()->routeIs('tpp.destroy');
@@ -48,6 +49,7 @@
         'viewer' => 'role-viewer',
         default => 'role-default',
     };
+    $unreadNotificationCount = $authUser?->unreadNotifications()->count() ?? 0;
 @endphp
 
 <header id="header" class="header dark-background d-flex flex-column">
@@ -87,6 +89,14 @@
             <li>
                 <a href="{{ route('dashboard') }}" class="{{ $isDashboard ? 'active' : '' }}" title="Dashboard">
                     <i class="bi bi-grid navicon"></i><span>{{ $isViewer ? 'Dashboard Saya' : 'Dashboard' }}</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('notifications.index') }}" class="{{ $isNotifications ? 'active' : '' }}" title="Notifikasi">
+                    <i class="bi bi-bell navicon"></i><span>Notifikasi</span>
+                    @if($unreadNotificationCount > 0)
+                        <span class="badge text-bg-danger rounded-pill ms-auto">{{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}</span>
+                    @endif
                 </a>
             </li>
 

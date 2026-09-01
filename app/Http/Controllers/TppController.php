@@ -6,6 +6,8 @@ use App\Models\Tpp;
 use App\Models\Pegawai;
 use App\Models\UnitKerja;
 use App\Models\TppApproval;
+use App\Models\User;
+use App\Notifications\TppPeriodStatusNotification;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\TppExport;
@@ -17,6 +19,7 @@ use App\Services\TppCalculator;
 use App\Services\TppPeriodReadiness;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Carbon;
 use App\Support\SipdRekapBuilder;
 use App\Support\TppRekapBuilder;
@@ -615,6 +618,21 @@ class TppController extends Controller
         $approval->appendHistory('Periode dikirim untuk validasi', $request->user()?->name);
         $approval->save();
 
+        $unitName = $request->user()?->unitKerja?->nama_unit ?? 'Unit kerja';
+        Notification::send(
+            User::query()->where('role', 'super_admin')->get(),
+            new TppPeriodStatusNotification(
+                'Pengajuan TPP menunggu validasi',
+                "{$unitName} telah mengajukan TPP periode {$bulan}/{$tahun}.",
+                $unitKerjaId,
+                $unitName,
+                $bulan,
+                $tahun,
+                TppApproval::STATUS_SUBMITTED,
+                $request->user()?->name,
+            )
+        );
+
         return back()->with('success', 'TPP periode ini berhasil dikirim untuk validasi super admin.');
     }
 
@@ -645,6 +663,24 @@ class TppController extends Controller
         ]);
         $approval->appendHistory('Periode divalidasi dan dikunci', $request->user()?->name);
         $approval->save();
+
+        $unit = UnitKerja::query()->findOrFail((int) $data['unit_kerja_id']);
+        Notification::send(
+            User::query()
+                ->where('unit_kerja_id', $unit->id)
+                ->whereIn('role', ['admin', 'operator'])
+                ->get(),
+            new TppPeriodStatusNotification(
+                'Periode TPP telah divalidasi',
+                "TPP {$unit->nama_unit} periode {$data['bulan']}/{$data['tahun']} telah divalidasi dan dikunci.",
+                $unit->id,
+                $unit->nama_unit,
+                (int) $data['bulan'],
+                (int) $data['tahun'],
+                TppApproval::STATUS_LOCKED,
+                $request->user()?->name,
+            )
+        );
 
         return back()->with('success', 'TPP periode ini berhasil divalidasi dan dikunci.');
     }
@@ -677,6 +713,24 @@ class TppController extends Controller
         ]);
         $approval->appendHistory('Kunci periode dibuka', $request->user()?->name, $data['alasan']);
         $approval->save();
+
+        $unit = UnitKerja::query()->findOrFail((int) $data['unit_kerja_id']);
+        Notification::send(
+            User::query()
+                ->where('unit_kerja_id', $unit->id)
+                ->whereIn('role', ['admin', 'operator'])
+                ->get(),
+            new TppPeriodStatusNotification(
+                'Periode TPP dibuka kembali',
+                "TPP {$unit->nama_unit} periode {$data['bulan']}/{$data['tahun']} dibuka kembali. Alasan: {$data['alasan']}",
+                $unit->id,
+                $unit->nama_unit,
+                (int) $data['bulan'],
+                (int) $data['tahun'],
+                TppApproval::STATUS_DRAFT,
+                $request->user()?->name,
+            )
+        );
 
         return back()->with('success', 'Kunci TPP berhasil dibuka. Admin/operator unit kerja kini bisa mengedit kembali.');
     }
