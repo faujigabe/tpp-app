@@ -319,7 +319,6 @@ class TppController extends Controller
         $orderedQuery = (clone $query)->orderBy('tahun', 'desc')->orderBy('bulan', 'desc');
 
         $tpps = (clone $orderedQuery)->paginate(25)->withQueryString();
-        $allFilteredTpps = (clone $orderedQuery)->get();
 
         $tpps->getCollection()->transform(function ($tpp) {
             $tpp->wa_link = $this->buildWhatsappLink($tpp);
@@ -327,25 +326,30 @@ class TppController extends Controller
             return $tpp;
         });
 
-        $massWhatsappItems = $allFilteredTpps
-            ->map(function ($tpp) {
-                $link = $this->buildWhatsappLink($tpp);
+        $massWhatsappItems = collect();
+        $waValidCount = 0;
+        $waMissingCount = 0;
+        if (in_array($request->user()?->role, ['admin', 'operator'], true)) {
+            $allFilteredTpps = (clone $orderedQuery)->get();
+            $massWhatsappItems = $allFilteredTpps
+                ->map(function ($tpp) {
+                    $link = $this->buildWhatsappLink($tpp);
 
-                if (!$link) {
-                    return null;
-                }
+                    if (!$link) {
+                        return null;
+                    }
 
-                return [
-                    'id' => $tpp->id,
-                    'nama' => $tpp->referensi_nama,
-                    'link' => $link,
-                ];
-            })
-            ->filter()
-            ->values();
-
-        $waValidCount = $massWhatsappItems->count();
-        $waMissingCount = max($allFilteredTpps->count() - $waValidCount, 0);
+                    return [
+                        'id' => $tpp->id,
+                        'nama' => $tpp->referensi_nama,
+                        'link' => $link,
+                    ];
+                })
+                ->filter()
+                ->values();
+            $waValidCount = $massWhatsappItems->count();
+            $waMissingCount = max($allFilteredTpps->count() - $waValidCount, 0);
+        }
 
         $viewerMode = $request->user()?->role === 'viewer';
         $viewerPegawai = $viewerMode ? $request->user()->pegawai : null;

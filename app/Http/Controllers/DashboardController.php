@@ -121,7 +121,17 @@ class DashboardController extends Controller
 
             $totalPegawai = (clone $pegawaiAktifPeriodeScope)->count();
             $pegawaiTanpaKelas = (clone $pegawaiAktifPeriodeScope)->whereNull('kelas_jabatan_id')->count();
-            $jumlahPerhitungan = (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->count();
+            $periodStats = (clone $tppScope)
+                ->where('bulan', $bulan)
+                ->where('tahun', $tahun)
+                ->selectRaw('COUNT(*) as jumlah')
+                ->selectRaw('COALESCE(SUM(tpp_kotor), 0) as total_tpp_kotor')
+                ->selectRaw('COALESCE(SUM(iuran_wajib), 0) as total_bpjs')
+                ->selectRaw('COALESCE(SUM(pajak), 0) as total_pajak')
+                ->selectRaw('COALESCE(SUM(zakat), 0) as total_zakat')
+                ->selectRaw('COALESCE(SUM(total_diterima), 0) as total_diterima')
+                ->first();
+            $jumlahPerhitungan = (int) $periodStats->jumlah;
             $pegawaiBelumDihitung = max($totalPegawai - $jumlahPerhitungan, 0);
             $pegawaiSiap = $targetUnitKerjaId
                 ? $this->periodReadiness->analyze($targetUnitKerjaId, $bulan, $tahun)['ready_count']
@@ -129,11 +139,11 @@ class DashboardController extends Controller
                     ->whereNotNull('kelas_jabatan_id')
                     ->whereHas('tpps', fn ($query) => $query->where('bulan', $bulan)->where('tahun', $tahun))
                     ->count();
-            $totalTppKotor = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('tpp_kotor');
-            $totalBpjs = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('iuran_wajib');
-            $totalPajak = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('pajak');
-            $totalZakat = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('zakat');
-            $totalDiterima = (float) (clone $tppScope)->where('bulan', $bulan)->where('tahun', $tahun)->sum('total_diterima');
+            $totalTppKotor = (float) $periodStats->total_tpp_kotor;
+            $totalBpjs = (float) $periodStats->total_bpjs;
+            $totalPajak = (float) $periodStats->total_pajak;
+            $totalZakat = (float) $periodStats->total_zakat;
+            $totalDiterima = (float) $periodStats->total_diterima;
             $rataDiterima = $jumlahPerhitungan > 0 ? $totalDiterima / $jumlahPerhitungan : 0;
             $top5 = (clone $tppScope)->with('pegawai')->orderByDesc('total_diterima')->where('bulan', $bulan)->where('tahun', $tahun)->take(5)->get();
             $periodeTerakhir = (clone $tppScope)->selectRaw('tahun, bulan, COUNT(*) as jumlah, SUM(total_diterima) as total')->groupBy('tahun', 'bulan')->orderByDesc('tahun')->orderByDesc('bulan')->take(6)->get();
