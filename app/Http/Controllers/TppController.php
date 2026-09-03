@@ -932,7 +932,7 @@ class TppController extends Controller
 
     private function buildWhatsappLink(Tpp $tpp): ?string
     {
-        $phone = $this->formatWhatsappNumber($tpp->referensi_no_hp);
+        $phone = $this->formatWhatsappNumber($tpp->nomor_whatsapp);
 
         if (!$phone) {
             return null;

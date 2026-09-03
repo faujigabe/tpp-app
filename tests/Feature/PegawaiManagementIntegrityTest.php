@@ -58,6 +58,33 @@ class PegawaiManagementIntegrityTest extends TestCase
         $this->assertSame($unitBaru->id, $user->fresh()->unit_kerja_id);
     }
 
+    public function test_tombol_whatsapp_memakai_nomor_pegawai_terbaru(): void
+    {
+        [$unit, $kelas] = $this->makeUnitAndClass('WA-TERBARU');
+        $pegawai = $this->makePegawai($unit, $kelas);
+        $riwayat = $this->makeTpp($pegawai, $unit, 1);
+        $riwayat->update([
+            'pegawai_snapshot' => array_merge($riwayat->pegawai_snapshot ?? [], [
+                'no_hp' => '081234567890',
+            ]),
+        ]);
+        $operator = User::factory()->create([
+            'role' => 'operator',
+            'unit_kerja_id' => $unit->id,
+        ]);
+
+        $pegawai->update(['no_hp' => '087654321098']);
+        $riwayat->refresh()->load('pegawai');
+
+        $this->assertSame('081234567890', $riwayat->referensi_no_hp);
+        $this->assertSame('087654321098', $riwayat->nomor_whatsapp);
+
+        $this->actingAs($operator)
+            ->get(route('tpp.index', ['bulan' => 1, 'tahun' => 2026]))
+            ->assertOk()
+            ->assertSee('https://wa.me/6287654321098', false);
+    }
+
     public function test_kelas_jabatan_yang_dipakai_pegawai_tidak_dapat_dihapus(): void
     {
         [$unit, $kelas] = $this->makeUnitAndClass('KELAS');
