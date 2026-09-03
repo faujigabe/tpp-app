@@ -95,6 +95,13 @@ class Tpp extends Model
         return (string) $this->snapshotPreferred('no_hp', $this->pegawai?->no_hp, '');
     }
 
+    public function getNomorWhatsappAttribute(): string
+    {
+        $nomorTerkini = trim((string) ($this->pegawai?->no_hp ?? ''));
+
+        return $nomorTerkini !== '' ? $nomorTerkini : $this->referensi_no_hp;
+    }
+
     public function getReferensiNomorRekeningAttribute(): string
     {
         return (string) $this->snapshotPreferred('nomor_rekening', $this->pegawai?->nomor_rekening, '');

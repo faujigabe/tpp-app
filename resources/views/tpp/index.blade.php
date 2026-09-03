@@ -382,7 +382,7 @@
                             <td>
                                 <div class="fw-semibold text-dark">{{ $tpp->referensi_nama ?: '-' }}</div>
                                 <div class="small text-muted">NIP: {{ $tpp->referensi_nip ?: '-' }}</div>
-                                <div class="small text-muted">No. HP: {{ $tpp->referensi_no_hp ?: '-' }}</div>
+                                <div class="small text-muted">No. HP: {{ $tpp->nomor_whatsapp ?: '-' }}</div>
                             </td>
                             @if($isSuperAdmin && !$viewerMode)
                                 <td>

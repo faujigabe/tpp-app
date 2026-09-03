@@ -24,7 +24,7 @@ class TppWhatsappExport extends SafeExcelValueBinder implements FromCollection, 
             return [
                 'nama' => $tpp->referensi_nama,
                 'nip' => $tpp->referensi_nip,
-                'no_hp' => $tpp->referensi_no_hp,
+                'no_hp' => $tpp->nomor_whatsapp,
                 'periode' => $tpp->periode_label ?? '',
                 'produktivitas' => $this->formatPercent($tpp->produktivitas),
                 'kehadiran' => $this->formatPercent($tpp->kehadiran),
