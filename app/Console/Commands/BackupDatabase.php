@@ -11,13 +11,22 @@ use RuntimeException;
 
 class BackupDatabase extends Command
 {
-    protected $signature = 'database:backup {--weekly : Salin hasil backup ke lokasi mingguan terpisah}';
+    protected $signature = 'database:backup
+    {--weekly : Salin hasil backup ke lokasi mingguan terpisah}
+    {--monthly : Salin backup harian terbaru ke lokasi bulanan}';
     protected $description = 'Membuat backup MySQL terkompresi beserta checksum integritas';
 
     public function handle(MySqlBackupProcess $backupProcess): int
     {
-        $type = $this->option('weekly') ? 'weekly' : 'daily';
+        $type = $this->option('monthly')
+            ? 'monthly'
+            : ($this->option('weekly') ? 'weekly' : 'daily');
+
         $run = $this->startRun($type);
+
+        if ($this->option('monthly')) {
+            return $this->handleMonthly($run);
+        }
 
         if (config('database.default') !== 'mysql') {
             $message = 'Perintah backup hanya mendukung koneksi MySQL.';
@@ -58,6 +67,72 @@ class BackupDatabase extends Command
             report($e);
             $this->recordFailure($run, $type, $e->getMessage());
             $this->error('Backup gagal: ' . $e->getMessage());
+            return self::FAILURE;
+        }
+    }
+
+    private function handleMonthly(?BackupRun $run): int
+    {
+        $localPath = (string) config('backup.local_path');
+        $monthlyPath = trim((string) config('backup.monthly_path'));
+
+        if ($monthlyPath === '') {
+            $message = 'BACKUP_MONTHLY_PATH belum dikonfigurasi.';
+            $this->recordFailure($run, 'monthly', $message);
+            $this->error($message);
+            return self::FAILURE;
+        }
+
+        try {
+            File::ensureDirectoryExists($monthlyPath);
+
+            $files = glob($localPath . DIRECTORY_SEPARATOR . 'tpp_*.sql.gz') ?: [];
+            $files = array_filter($files, 'is_file');
+
+            if ($files === []) {
+                throw new RuntimeException('Tidak ditemukan backup harian untuk dijadikan backup bulanan.');
+            }
+
+            usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
+            $source = $files[0];
+
+            $sourceChecksum = $source . '.sha256';
+            if (!is_file($sourceChecksum)) {
+                throw new RuntimeException('Checksum backup harian tidak ditemukan.');
+            }
+
+            $target = $monthlyPath . DIRECTORY_SEPARATOR . basename($source);
+
+            if (!copy($source, $target)) {
+                throw new RuntimeException('Gagal menyalin backup harian ke lokasi bulanan.');
+            }
+
+            if (!copy($sourceChecksum, $target . '.sha256')) {
+                @unlink($target);
+                throw new RuntimeException('Gagal menyalin checksum backup bulanan.');
+            }
+
+            $checksum = hash_file('sha256', $target);
+            $size = (int) filesize($target);
+
+            $this->prune($monthlyPath, (int) config('backup.monthly_retention_days'));
+
+            $this->recordSuccess(
+                $run,
+                'monthly',
+                $target,
+                $size,
+                $checksum
+            );
+
+            $this->info('Backup bulanan berhasil: ' . $target);
+
+            return self::SUCCESS;
+        } catch (\Throwable $e) {
+            report($e);
+            $this->recordFailure($run, 'monthly', $e->getMessage());
+            $this->error('Backup bulanan gagal: ' . $e->getMessage());
+
             return self::FAILURE;
         }
     }
@@ -147,7 +222,7 @@ class BackupDatabase extends Command
             throw new RuntimeException('BACKUP_WEEKLY_PATH belum dikonfigurasi.');
         }
 
-        $normalize = fn ($path) => strtolower(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, rtrim($path, '/\\')));
+        $normalize = fn($path) => strtolower(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, rtrim($path, '/\\')));
         if ($normalize($weeklyPath) === $normalize((string) config('backup.local_path'))) {
             throw new RuntimeException('Lokasi backup mingguan harus berbeda dari lokasi backup harian.');
         }
