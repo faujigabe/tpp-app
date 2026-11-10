@@ -12,6 +12,7 @@ use App\Http\Controllers\FaqController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BackupMonitorController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\WhatsappGatewayController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -45,6 +46,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(['role:admin,operator'])->group(function () {
         Route::get('/tpp/export-whatsapp', [TppController::class, 'exportWhatsappExcel'])->name('tpp.export.whatsapp');
+        Route::get('/whatsapp-gateway/status', [WhatsappGatewayController::class, 'status'])->name('tpp.whatsapp.gateway.status');
+        Route::post('/tpp/{tpp}/whatsapp-gateway', [WhatsappGatewayController::class, 'send'])->name('tpp.whatsapp.gateway.send');
         Route::get('/tpp/create', [TppController::class, 'create'])->name('tpp.create');
         Route::post('/tpp/import-ekinerja-pdf', [TppController::class, 'importEkinerjaPdf'])->name('tpp.import-ekinerja-pdf');
         Route::post('/tpp/store', [TppController::class, 'store'])->name('tpp.store');

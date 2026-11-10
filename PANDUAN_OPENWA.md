@@ -128,6 +128,33 @@ php artisan tpp:send-wa 10 2026 --send --unit=3
   dikirim manual lewat wa.me (indikator, rincian kotor, potongan, total
   diterima).
 
+### Kirim lewat halaman TPP (tanpa terminal)
+
+Selain lewat perintah artisan, pengiriman massal juga bisa dilakukan dari
+antarmuka aplikasi:
+
+1. Pastikan Docker Desktop dan OpenWA berjalan dan sesi berstatus terhubung.
+2. Buka menu **TPP**, atur filter bulan/tahun (dan pencarian/unit) sesuai
+   periode yang akan dikirim — pengiriman mengikuti filter yang aktif,
+   sama seperti fitur WhatsApp massal yang lama.
+3. Klik **Kirim WA Massal**, lalu di jendela yang muncul klik
+   **Kirim via Gateway**.
+4. Aplikasi memeriksa status sesi terlebih dahulu. Bila sesi tidak
+   terhubung, pengiriman tidak dimulai dan alasannya ditampilkan.
+5. Selama pengiriman, modal menampilkan bilah kemajuan, status penerima
+   yang sedang diproses, dan catatan per pegawai (terkirim/gagal).
+   Pengiriman berjalan satu per satu dengan jeda 8 detik antar pegawai —
+   **halaman harus tetap terbuka** sampai selesai. Tombol **Hentikan**
+   menghentikan pengiriman setelah pesan yang sedang berjalan.
+6. Tombol **Buka Semua Chat** (cara lama lewat wa.me) tetap tersedia dan
+   tidak berubah.
+
+Endpoint yang dipakai halaman (khusus admin/operator, super admin ditolak,
+dan operator hanya dapat mengirim data unit kerjanya sendiri):
+
+- `GET /whatsapp-gateway/status` — pemeriksaan status sesi
+- `POST /tpp/{id}/whatsapp-gateway` — kirim rincian satu pegawai
+
 ### Menonaktifkan
 
 Cukup set `OPENWA_ENABLED=false` di `.env` lalu `php artisan config:clear`.

@@ -491,11 +491,30 @@
                 <div class="small text-muted">
                     Browser dapat memblokir sebagian tab jika terlalu banyak chat dibuka sekaligus. Jika ada yang belum terbuka, gunakan tombol WA pada baris pegawai terkait.
                 </div>
+
+                <div class="small text-muted mt-2">
+                    <strong>Kirim via Gateway</strong> mengirim pesan langsung lewat OpenWA tanpa membuka chat satu per satu — pastikan Docker/OpenWA berjalan dan sesi terhubung. Halaman ini harus tetap terbuka selama pengiriman berlangsung.
+                </div>
+
+                <div id="gatewaySection" class="border rounded p-3 mt-3 d-none">
+                    <div class="small text-muted mb-2">Pengiriman via Gateway (OpenWA)</div>
+                    <div class="progress mb-2" role="progressbar" aria-label="Kemajuan pengiriman gateway">
+                        <div class="progress-bar bg-success" id="gatewayProgressBar" style="width: 0%">0%</div>
+                    </div>
+                    <div class="small mb-2" id="gatewayStatusText">Menyiapkan...</div>
+                    <div class="small overflow-auto" id="gatewayLog" style="max-height: 180px"></div>
+                </div>
             </div>
             <div class="modal-footer justify-content-between">
                 <div class="small text-muted">Pengiriman mengikuti filter bulan, tahun, dan pencarian yang sedang aktif.</div>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-outline-danger d-none" id="btnHentikanGateway">
+                        <i class="bi bi-stop-circle me-1"></i> Hentikan
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnKirimWhatsappGateway">
+                        <i class="bi bi-send me-1"></i> Kirim via Gateway
+                    </button>
                     <button type="button" class="btn btn-success" id="btnKirimWhatsappMassal">
                         <i class="bi bi-whatsapp me-1"></i> Buka Semua Chat
                     </button>
@@ -594,6 +613,141 @@ document.addEventListener('DOMContentLoaded', function () {
                 instance.hide();
             }
         }
+    });
+});
+</script>
+@endif
+
+@if(!$viewerMode && ($waValidCount ?? 0) > 0)
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const gatewayItems = @json(($massWhatsappItems ?? collect())->map(fn ($item) => ['id' => $item['id'], 'nama' => $item['nama']])->values()->all());
+    const sendUrlTemplate = @json(route('tpp.whatsapp.gateway.send', ['tpp' => '__ID__']));
+    const statusUrl = @json(route('tpp.whatsapp.gateway.status'));
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const btnGateway = document.getElementById('btnKirimWhatsappGateway');
+    const btnStop = document.getElementById('btnHentikanGateway');
+    const btnWaMe = document.getElementById('btnKirimWhatsappMassal');
+    const section = document.getElementById('gatewaySection');
+    const bar = document.getElementById('gatewayProgressBar');
+    const statusText = document.getElementById('gatewayStatusText');
+    const logBox = document.getElementById('gatewayLog');
+    const JEDA_MS = 8000;
+    let berhenti = false;
+
+    if (!btnGateway || !section || !bar || !statusText || !logBox || !Array.isArray(gatewayItems) || gatewayItems.length === 0) {
+        return;
+    }
+
+    const tidur = function (ms) {
+        return new Promise(function (resolve) { setTimeout(resolve, ms); });
+    };
+
+    const barisLog = function (teks, sukses) {
+        const div = document.createElement('div');
+        div.className = sukses ? 'text-success' : 'text-danger';
+        div.textContent = (sukses ? '✓ ' : '✗ ') + teks;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+    };
+
+    const aturKemajuan = function (selesai, total) {
+        const persen = total ? Math.round((selesai / total) * 100) : 0;
+        bar.style.width = persen + '%';
+        bar.textContent = persen + '%';
+    };
+
+    const resetTombol = function () {
+        btnGateway.disabled = false;
+        if (btnWaMe) {
+            btnWaMe.disabled = false;
+        }
+        if (btnStop) {
+            btnStop.classList.add('d-none');
+            btnStop.disabled = false;
+        }
+    };
+
+    if (btnStop) {
+        btnStop.addEventListener('click', function () {
+            berhenti = true;
+            btnStop.disabled = true;
+            statusText.textContent = 'Menghentikan setelah pesan yang sedang berjalan...';
+        });
+    }
+
+    btnGateway.addEventListener('click', async function () {
+        berhenti = false;
+        section.classList.remove('d-none');
+        logBox.innerHTML = '';
+        aturKemajuan(0, gatewayItems.length);
+        statusText.textContent = 'Memeriksa status gateway...';
+        btnGateway.disabled = true;
+        if (btnWaMe) {
+            btnWaMe.disabled = true;
+        }
+        if (btnStop) {
+            btnStop.classList.remove('d-none');
+        }
+
+        let siap = false;
+        let pesanStatus = 'Tidak dapat memeriksa status gateway.';
+        try {
+            const responsStatus = await fetch(statusUrl, { headers: { 'Accept': 'application/json' } });
+            const dataStatus = await responsStatus.json();
+            siap = !!(dataStatus.enabled && dataStatus.ok);
+            pesanStatus = dataStatus.message || pesanStatus;
+        } catch (e) {
+            siap = false;
+        }
+
+        if (!siap) {
+            statusText.textContent = pesanStatus;
+            barisLog(pesanStatus, false);
+            resetTombol();
+            return;
+        }
+
+        let terkirim = 0;
+        let gagal = 0;
+
+        for (let i = 0; i < gatewayItems.length; i++) {
+            if (berhenti) {
+                break;
+            }
+
+            const item = gatewayItems[i];
+            statusText.textContent = 'Mengirim ' + (i + 1) + ' dari ' + gatewayItems.length + ': ' + item.nama;
+
+            try {
+                const respons = await fetch(sendUrlTemplate.replace('__ID__', item.id), {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken }
+                });
+                const data = await respons.json().catch(function () { return null; });
+
+                if (respons.ok && data && data.ok) {
+                    terkirim++;
+                    barisLog(item.nama + ' — terkirim', true);
+                } else {
+                    gagal++;
+                    barisLog(item.nama + ' — gagal: ' + ((data && data.error) ? data.error : ('HTTP ' + respons.status)), false);
+                }
+            } catch (e) {
+                gagal++;
+                barisLog(item.nama + ' — gagal: koneksi terputus', false);
+            }
+
+            aturKemajuan(i + 1, gatewayItems.length);
+
+            if (i < gatewayItems.length - 1 && !berhenti) {
+                statusText.textContent = 'Jeda 8 detik sebelum penerima berikutnya... (' + terkirim + ' terkirim, ' + gagal + ' gagal)';
+                await tidur(JEDA_MS);
+            }
+        }
+
+        statusText.textContent = (berhenti ? 'Dihentikan. ' : 'Selesai. ') + 'Terkirim: ' + terkirim + ', gagal: ' + gagal + '.';
+        resetTombol();
     });
 });
 </script>
