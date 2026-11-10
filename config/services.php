@@ -31,4 +31,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // OpenWA — WhatsApp API Gateway self-hosted (layanan terpisah, Node.js/Docker).
+    // Lihat PANDUAN_OPENWA.md di root repo.
+    'openwa' => [
+        'enabled' => env('OPENWA_ENABLED', false),
+        'base_url' => env('OPENWA_BASE_URL', 'http://localhost:2785/api'),
+        'api_key' => env('OPENWA_API_KEY'),
+        'session_id' => env('OPENWA_SESSION_ID'),
+        'timeout' => env('OPENWA_TIMEOUT', 30),
+    ],
+
 ];
